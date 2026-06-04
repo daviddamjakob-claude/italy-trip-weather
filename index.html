@@ -362,45 +362,67 @@ function metSymbolInfo(symbol) {
 }
 
 async function fetchLocationMET(loc) {
+  // Note: User-Agent is a forbidden header in Fetch — browsers send their own automatically.
+  // Setting it explicitly causes "Load failed" on iOS Safari, so we omit it entirely.
   const url = `https://api.met.no/weatherapi/locationforecast/2.0/compact?lat=${loc.lat}&lon=${loc.lon}`;
-  const res = await fetch(url, {
-    headers: { 'User-Agent': 'italy-trip-weather/1.0 github.com/daviddamjakob-claude/italy-trip-weather' }
-  });
+  const res = await fetch(url);
   if (!res.ok) throw new Error(`HTTP ${res.status} for ${loc.name}`);
   const raw = await res.json();
 
-  // Normalise MET Norway response into the same shape as Open-Meteo
+  // Normalise MET Norway response into the same shape as Open-Meteo hourly arrays
   // so buildLocationDays() can consume it unchanged.
+  // MET Norway provides next_1_hours for ~3 days, then switches to next_6_hours.
+  // We expand 6-hour blocks into 6 synthetic hourly entries so we get a full 10 days.
   const times = [], temperature_2m = [], precipitation_probability = [],
         precipitation = [], weathercode = [];
 
   for (const entry of raw.properties.timeseries) {
-    const dt = entry.time; // "2026-06-04T12:00:00Z"
-    // Convert UTC → Rome local time (UTC+2 in summer)
-    const localMs = new Date(dt).getTime() + 2 * 3600 * 1000;
-    const local = new Date(localMs);
-    const localStr = local.toISOString().replace('Z', '').slice(0, 16); // "2026-06-04T14:00"
+    const entryMs  = new Date(entry.time).getTime();
+    const instant  = entry.data.instant.details;
+    const next1h   = entry.data.next_1_hours;
+    const next6h   = entry.data.next_6_hours;
 
-    const instant = entry.data.instant.details;
-    const next1h  = entry.data.next_1_hours;
-    if (!next1h) continue; // skip entries without per-hour data
+    if (next1h) {
+      // ── 1-hour block ──
+      const symbol = next1h.summary?.symbol_code || '';
+      const { rainProb } = metSymbolInfo(symbol);
+      const localStr = utcMsToRomeLocal(entryMs);
+      times.push(localStr);
+      temperature_2m.push(instant.air_temperature);
+      precipitation_probability.push(rainProb);
+      precipitation.push(next1h.details?.precipitation_amount ?? 0);
+      weathercode.push(symbol);
 
-    const symbol = next1h.summary?.symbol_code || '';
-    const { rainProb } = metSymbolInfo(symbol);
+    } else if (next6h) {
+      // ── 6-hour block: spread across 6 synthetic hourly entries ──
+      const symbol = next6h.summary?.symbol_code || '';
+      const { rainProb } = metSymbolInfo(symbol);
+      const totalPrecip = next6h.details?.precipitation_amount ?? 0;
+      const precipPerHour = parseFloat((totalPrecip / 6).toFixed(2));
 
-    times.push(localStr);
-    temperature_2m.push(instant.air_temperature);
-    precipitation_probability.push(rainProb);
-    precipitation.push(next1h.details?.precipitation_amount ?? 0);
-    // Store symbol as a string; buildLocationDays will call weatherCodeInfo on it —
-    // we intercept that by tagging the data with _source='met' and using metSymbolInfo.
-    weathercode.push(symbol);
+      for (let h = 0; h < 6; h++) {
+        const localStr = utcMsToRomeLocal(entryMs + h * 3600000);
+        times.push(localStr);
+        temperature_2m.push(instant.air_temperature);
+        precipitation_probability.push(rainProb);
+        precipitation.push(precipPerHour);
+        weathercode.push(symbol);
+      }
+    }
+    // next_12_hours only (no 1h or 6h) — skip; covered by surrounding 6h blocks
   }
 
   return {
     _source: 'met',
     hourly: { time: times, temperature_2m, precipitation_probability, precipitation, weathercode }
   };
+}
+
+// Convert UTC milliseconds → Rome local time string "YYYY-MM-DDTHH:MM"
+// Uses a fixed +2h offset (CEST, valid May–Oct for the Italy/Austria trip window)
+function utcMsToRomeLocal(ms) {
+  const local = new Date(ms + 2 * 3600 * 1000);
+  return local.toISOString().slice(0, 16); // drop seconds and Z
 }
 
 async function doFetchMET() {
