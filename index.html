@@ -62,12 +62,12 @@
     }
     .tab-btn {
       flex: 1; border: none; background: none;
-      font-size: 11px; color: var(--text-muted);
+      font-size: 10px; color: var(--text-muted);
       cursor: pointer; display: flex; flex-direction: column;
       align-items: center; justify-content: center; gap: 2px;
-      transition: color 0.15s;
+      transition: color 0.15s; padding: 0 2px;
     }
-    .tab-btn .tab-icon { font-size: 20px; line-height: 1; }
+    .tab-btn .tab-icon { font-size: 18px; line-height: 1; }
     .tab-btn.active { color: var(--accent); }
 
     /* ── Tab panels ── */
@@ -292,9 +292,14 @@
   <span id="fetch-time"></span>
 </div>
 
-<!-- ══ TAB: Changes ══ -->
-<div id="tab-changes" class="tab-panel active">
-  <div class="content-area" id="changes-content"></div>
+<!-- ══ TAB: City Guide ══ -->
+<div id="tab-cityguide" class="tab-panel active">
+  <div class="content-area" id="cityguide-content"></div>
+</div>
+
+<!-- ══ TAB: Weather Guide ══ -->
+<div id="tab-weather" class="tab-panel">
+  <div class="content-area" id="weather-content"></div>
 </div>
 
 <!-- ══ TAB: By Day ══ -->
@@ -317,8 +322,11 @@
 
 <!-- Bottom tab bar -->
 <div id="tab-bar">
-  <button class="tab-btn active" onclick="showTab('changes')" id="btn-changes">
-    <span class="tab-icon">🗺</span>Guide
+  <button class="tab-btn active" onclick="showTab('cityguide')" id="btn-cityguide">
+    <span class="tab-icon">🗺</span>City Guide
+  </button>
+  <button class="tab-btn" onclick="showTab('weather')" id="btn-weather">
+    <span class="tab-icon">🔔</span>Weather Guide
   </button>
   <button class="tab-btn" onclick="showTab('day')" id="btn-day">
     <span class="tab-icon">📅</span>By Day
@@ -915,17 +923,23 @@ function cityGuideHTML() {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// TAB: GUIDE — combined render
+// TAB: CITY GUIDE — static render (no weather dependency)
 // ═══════════════════════════════════════════════════════════════
 
-function renderGuideTab(currentData, previousData) {
-  document.getElementById('changes-content').innerHTML =
+function renderCityGuideTab() {
+  document.getElementById('cityguide-content').innerHTML = cityGuideHTML();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// TAB: WEATHER GUIDE — Changes + Travel Recommendation
+// ═══════════════════════════════════════════════════════════════
+
+function renderWeatherGuideTab(currentData, previousData) {
+  document.getElementById('weather-content').innerHTML =
     `<div class="section-title">Changes</div>` +
     changesHTML(currentData, previousData) +
     `<div class="section-title">Travel Recommendation</div>` +
-    travelHTML(currentData) +
-    `<div class="section-title">City Guide</div>` +
-    cityGuideHTML();
+    travelHTML(currentData);
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -1028,7 +1042,8 @@ function renderAll() {
   if (source === 'om')  { badge.textContent = 'Open-Meteo';  badge.className = 'om'; }
   if (source === 'met') { badge.textContent = 'MET Norway';  badge.className = 'met'; }
 
-  renderGuideTab(current, previous);
+  renderCityGuideTab();
+  renderWeatherGuideTab(current, previous);
   if (current) {
     renderByDayTab(current);
     renderByCityTab(current);
@@ -1039,7 +1054,7 @@ function renderAll() {
 // TAB SWITCHING
 // ═══════════════════════════════════════════════════════════════
 
-const TAB_NAMES = ['changes', 'day', 'city'];
+const TAB_NAMES = ['cityguide', 'weather', 'day', 'city'];
 
 function showTab(name) {
   TAB_NAMES.forEach(t => {
