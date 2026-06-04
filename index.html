@@ -209,6 +209,50 @@
       color: var(--text-muted); font-size: 14px;
     }
 
+    /* ── Guide tab sections ── */
+    .section-title {
+      font-size: 11px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.6px; color: var(--text-muted);
+      padding: 18px 14px 8px;
+    }
+
+    /* ── Itinerary cards ── */
+    .itin-desc {
+      font-size: 12px; color: var(--text-muted);
+      padding: 0 14px 10px; border-bottom: 1px solid var(--border);
+    }
+    .itin-row {
+      padding: 8px 14px;
+      border-bottom: 1px solid var(--border);
+    }
+    .itin-row:last-child { border-bottom: none; }
+    .itin-top {
+      display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+    }
+    .itin-date  { font-size: 11px; color: var(--text-muted); white-space: nowrap; min-width: 62px; }
+    .itin-loc   { font-size: 13px; font-weight: 600; flex: 1; }
+    .itin-wx    { display: flex; align-items: center; gap: 4px; font-size: 12px; white-space: nowrap; }
+    .itin-act   { font-size: 12px; color: var(--text-muted); margin-top: 2px; padding-left: 68px; }
+
+    /* ── Score badges & dots ── */
+    .score-badge {
+      font-size: 11px; font-weight: 600; padding: 2px 7px;
+      border-radius: 10px; margin-left: 6px; vertical-align: middle;
+    }
+    .score-dot {
+      display: inline-block; width: 9px; height: 9px;
+      border-radius: 50%; flex-shrink: 0;
+    }
+    .score-great { background: #d1fae5; color: #065f46; }
+    .score-good  { background: #dbeafe; color: #1d4ed8; }
+    .score-ok    { background: #fef3c7; color: #92400e; }
+    .score-poor  { background: #fee2e2; color: #991b1b; }
+    .score-dot.score-great { background: #10b981; }
+    .score-dot.score-good  { background: #3b82f6; }
+    .score-dot.score-ok    { background: #f59e0b; }
+    .score-dot.score-poor  { background: #ef4444; }
+    .score-dot.score-none  { background: #ccc; }
+
     /* ── Responsive ── */
     @media (min-width: 520px) {
       .slot-name { font-size: 13px; }
@@ -260,7 +304,7 @@
 <!-- Bottom tab bar -->
 <div id="tab-bar">
   <button class="tab-btn active" onclick="showTab('changes')" id="btn-changes">
-    <span class="tab-icon">🔔</span>Changes
+    <span class="tab-icon">🗺</span>Guide
   </button>
   <button class="tab-btn" onclick="showTab('day')" id="btn-day">
     <span class="tab-icon">📅</span>By Day
@@ -618,19 +662,15 @@ function dayCardHTML(day, selectedSlot) {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// TAB: CHANGES
+// TAB: GUIDE — Changes section
 // ═══════════════════════════════════════════════════════════════
 
-function renderChangesTab(currentData, previousData) {
-  const el = document.getElementById('changes-content');
-
-  if (!previousData) {
-    el.innerHTML = `<div class="no-changes">No previous data to compare.<br>Tap Refresh to load your first forecast.</div>`;
-    return;
-  }
+function changesHTML(currentData, previousData) {
   if (!currentData) {
-    el.innerHTML = `<div class="no-changes">No data loaded yet. Tap Refresh.</div>`;
-    return;
+    return `<div class="no-changes">No data loaded yet. Tap a fetch button above.</div>`;
+  }
+  if (!previousData) {
+    return `<div class="no-changes">No previous fetch to compare against.<br>Fetch again later to see what changed.</div>`;
   }
 
   let html = '';
@@ -639,45 +679,33 @@ function renderChangesTab(currentData, previousData) {
   currentData.forEach((locData, li) => {
     const prevLocData = previousData[li];
     if (!prevLocData) return;
-
     let cityChanges = '';
-
     locData.days.forEach((day, di) => {
       const prevDay = prevLocData.days[di];
       if (!prevDay) return;
-
       day.slots.forEach((slot, si) => {
         const prevSlot = prevDay.slots[si];
         if (!slot || !prevSlot) return;
-
         const lines = [];
-
-        // Temperature change ≥2°C
         const tempDiff = slot.maxTemp - prevSlot.maxTemp;
         if (Math.abs(tempDiff) >= 2) {
-          const better = tempDiff > 0; // warmer = better
-          const cls = better ? 'improve' : 'deteriorate';
+          const cls = tempDiff > 0 ? 'improve' : 'deteriorate';
           lines.push(`<div class="change-item ${cls}">
             <span class="change-label">${formatDate(day.date)} · ${slot.name}</span><br>
             Temperature: ${prevSlot.maxTemp}° → ${slot.maxTemp}° (${tempDiff > 0 ? '+' : ''}${tempDiff}°)
           </div>`);
         }
-
-        // Rain probability shift ≥20pp
         const rainDiff = slot.maxRainProb - prevSlot.maxRainProb;
         if (Math.abs(rainDiff) >= 20) {
-          const better = rainDiff < 0; // less rain = better
-          const cls = better ? 'improve' : 'deteriorate';
+          const cls = rainDiff < 0 ? 'improve' : 'deteriorate';
           lines.push(`<div class="change-item ${cls}">
             <span class="change-label">${formatDate(day.date)} · ${slot.name}</span><br>
             Rain chance: ${prevSlot.maxRainProb}% → ${slot.maxRainProb}% (${rainDiff > 0 ? '+' : ''}${rainDiff}pp)
           </div>`);
         }
-
         cityChanges += lines.join('');
       });
     });
-
     if (cityChanges) {
       anyChange = true;
       html += `<div class="card">
@@ -687,7 +715,136 @@ function renderChangesTab(currentData, previousData) {
     }
   });
 
-  el.innerHTML = anyChange ? html : `<div class="no-changes">No significant changes since last refresh.</div>`;
+  return anyChange ? html : `<div class="no-changes">No significant changes since last refresh.</div>`;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// TAB: GUIDE — Travel Recommendation section
+// ═══════════════════════════════════════════════════════════════
+
+// LOCATIONS indices: 0 Innsbruck, 1 Achensee, 2 Bolzano, 3 Riva del Garda,
+//                   4 Malcesine, 5 Peschiera, 6 Verona, 7 Venice, 8 Bologna, 9 Rimini
+
+// Slot indices: 0 Morning(7-10), 1 Early afternoon(11-14), 2 Late afternoon(15-18),
+//              3 Evening(19-22), 4 Night(23-6)
+
+const ITINERARIES = [
+  {
+    name: 'Route A — Garda First',
+    desc: 'Leave train at Rovereto (near Riva), cycle south along the lake, then Venice, Rimini, return north via Bolzano.',
+    days: [
+      { date:'2026-06-06', locIdx:3, loc:'Riva del Garda',      activity:'🚂 Train Innsbruck → Rovereto → Riva (~3.5h)',      slots:[2,3] },
+      { date:'2026-06-07', locIdx:3, loc:'Riva del Garda',      activity:'🚴 Explore Riva, short lakeside ride',              slots:[0,1,2] },
+      { date:'2026-06-08', locIdx:4, loc:'Malcesine',           activity:'🚴 Riva → Malcesine by bike (~40km south)',         slots:[0,1,2] },
+      { date:'2026-06-09', locIdx:5, loc:'Peschiera del Garda', activity:'🚴 Malcesine → Peschiera (~45km) → train Venice',   slots:[0,1,2] },
+      { date:'2026-06-10', locIdx:7, loc:'Venice',              activity:'🚶 Venice — explore on foot',                       slots:[0,1,2,3] },
+      { date:'2026-06-11', locIdx:7, loc:'Venice',              activity:'🚶 Venice day 2 or train to Bologna/Rimini',        slots:[0,1,2,3] },
+      { date:'2026-06-12', locIdx:9, loc:'Rimini',              activity:'🏖 Rimini — beach & adriatic coast',                slots:[0,1,2,3] },
+      { date:'2026-06-13', locIdx:2, loc:'Bolzano',             activity:'🚂 Rimini → Bologna → Bolzano (~3.5h train)',       slots:[0,1,2,3] },
+      { date:'2026-06-14', locIdx:0, loc:'Innsbruck',           activity:'🚂 Bolzano → Innsbruck (or via Achensee by bike)', slots:[0,1] },
+    ],
+  },
+  {
+    name: 'Route B — Rimini First',
+    desc: 'Take the full train to Rimini, enjoy the coast first, then Venice, cycle north along Lake Garda, return via Bolzano.',
+    days: [
+      { date:'2026-06-06', locIdx:9, loc:'Rimini',              activity:'🚂 Train Innsbruck → Verona → Rimini (long day)',   slots:[3,4] },
+      { date:'2026-06-07', locIdx:9, loc:'Rimini',              activity:'🏖 Rimini — full day on the adriatic',              slots:[0,1,2,3] },
+      { date:'2026-06-08', locIdx:7, loc:'Venice',              activity:'🚂 Train Rimini → Venice (~3h)',                    slots:[0,1,2,3] },
+      { date:'2026-06-09', locIdx:7, loc:'Venice',              activity:'🚶 Venice day 2',                                   slots:[0,1,2,3] },
+      { date:'2026-06-10', locIdx:5, loc:'Peschiera del Garda', activity:'🚂 Train Venice → Peschiera del Garda (~2h)',       slots:[0,1,2,3] },
+      { date:'2026-06-11', locIdx:4, loc:'Malcesine',           activity:'🚴 Peschiera → Malcesine by bike (~45km north)',    slots:[0,1,2] },
+      { date:'2026-06-12', locIdx:3, loc:'Riva del Garda',      activity:'🚴 Malcesine → Riva del Garda (~40km north)',      slots:[0,1,2] },
+      { date:'2026-06-13', locIdx:2, loc:'Bolzano',             activity:'🚂 Riva → Trento → Bolzano (~1.5h train)',         slots:[0,1,2,3] },
+      { date:'2026-06-14', locIdx:0, loc:'Innsbruck',           activity:'🚴 Bolzano → Achensee → Innsbruck (or train)',     slots:[0,1] },
+    ],
+  },
+];
+
+// Score a day-at-location for cycling/activity suitability (0–100)
+function scoreDayForActivity(dayData, slotIndices) {
+  if (!dayData) return null;
+  const relevant = slotIndices.map(i => dayData.slots[i]).filter(Boolean);
+  if (!relevant.length) return null;
+  const maxRain   = Math.max(...relevant.map(s => s.maxRainProb));
+  const maxTemp   = Math.max(...relevant.map(s => s.maxTemp));
+  const totPrecip = relevant.reduce((s, e) => s + e.totalPrecip, 0);
+  let score = 100 - maxRain * 0.75 - totPrecip * 6;
+  // Cold penalty (below 17°C) — cycling in cold rain is miserable
+  if (maxTemp < 17) score -= (17 - maxTemp) * 2;
+  score = Math.max(0, Math.min(100, Math.round(score)));
+  // Representative slot: worst rain probability
+  const repSlot = relevant.reduce((w, s) => s.maxRainProb > w.maxRainProb ? s : w, relevant[0]);
+  return { score, maxRain, maxTemp, repSlot };
+}
+
+function scoreLabel(score) {
+  if (score === null) return { text: '—',    cls: 'score-none'  };
+  if (score >= 75)    return { text: 'Great', cls: 'score-great' };
+  if (score >= 55)    return { text: 'Good',  cls: 'score-good'  };
+  if (score >= 35)    return { text: 'OK',    cls: 'score-ok'    };
+  return               { text: 'Poor',  cls: 'score-poor'  };
+}
+
+function itineraryCardHTML(itin, data) {
+  let totalScore = 0, scored = 0;
+
+  const rows = itin.days.map(day => {
+    const locData  = data ? data[day.locIdx] : null;
+    const dayData  = locData?.days.find(d => d.date === day.date);
+    const result   = scoreDayForActivity(dayData, day.slots);
+    if (result !== null) { totalScore += result.score; scored++; }
+    return { day, result };
+  });
+
+  const avgScore = scored ? Math.round(totalScore / scored) : null;
+  const { text: scoreTxt, cls: scoreCls } = scoreLabel(avgScore);
+
+  let html = `<div class="card">
+    <div class="card-header">${itin.name} <span class="score-badge ${scoreCls}">${scoreTxt}</span></div>
+    <div class="itin-desc">${itin.desc}</div>`;
+
+  rows.forEach(({ day, result }) => {
+    const dateLabel = formatDate(day.date);
+    let wx = '';
+    if (result) {
+      const { text, cls } = scoreLabel(result.score);
+      wx = `<span class="itin-wx">
+              ${result.repSlot.icon} ${result.maxTemp}°&thinsp;
+              <span class="${rainClass(result.maxRain)}" style="border-radius:3px;padding:1px 4px;font-size:11px;">${result.maxRain}%</span>
+              <span class="score-dot ${cls}"></span>
+            </span>`;
+    } else {
+      wx = `<span class="itin-wx" style="color:var(--text-muted)">no data</span>`;
+    }
+    html += `<div class="itin-row">
+      <div class="itin-top">
+        <span class="itin-date">${dateLabel}</span>
+        <span class="itin-loc">${day.loc}</span>
+        ${wx}
+      </div>
+      <div class="itin-act">${day.activity}</div>
+    </div>`;
+  });
+
+  html += '</div>';
+  return html;
+}
+
+function travelHTML(data) {
+  return ITINERARIES.map(itin => itineraryCardHTML(itin, data)).join('');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// TAB: GUIDE — combined render
+// ═══════════════════════════════════════════════════════════════
+
+function renderGuideTab(currentData, previousData) {
+  document.getElementById('changes-content').innerHTML =
+    `<div class="section-title">Changes</div>` +
+    changesHTML(currentData, previousData) +
+    `<div class="section-title">Travel Recommendation</div>` +
+    travelHTML(currentData);
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -790,7 +947,7 @@ function renderAll() {
   if (source === 'om')  { badge.textContent = 'Open-Meteo';  badge.className = 'om'; }
   if (source === 'met') { badge.textContent = 'MET Norway';  badge.className = 'met'; }
 
-  renderChangesTab(current, previous);
+  renderGuideTab(current, previous);
   if (current) {
     renderByDayTab(current);
     renderByCityTab(current);
