@@ -253,6 +253,20 @@
     .score-dot.score-poor  { background: #ef4444; }
     .score-dot.score-none  { background: #ccc; }
 
+    /* ── City guide cards ── */
+    .city-attr {
+      display: flex; gap: 8px; align-items: baseline;
+      padding: 7px 14px;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px; line-height: 1.45;
+    }
+    .city-attr:last-child { border-bottom: none; }
+    .city-attr-label {
+      font-size: 11px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.4px; color: var(--text-muted);
+      white-space: nowrap; min-width: 72px;
+    }
+
     /* ── Responsive ── */
     @media (min-width: 520px) {
       .slot-name { font-size: 13px; }
@@ -836,6 +850,71 @@ function travelHTML(data) {
 }
 
 // ═══════════════════════════════════════════════════════════════
+// TAB: GUIDE — City info
+// ═══════════════════════════════════════════════════════════════
+
+// Parallel to LOCATIONS array (same order)
+const CITY_INFO = [
+  {
+    vacation: 'A stunning alpine city worth 1–2 days — old town, Nordkette mountain cable car, and great food make it an ideal trip bookend.',
+    cycling:  'Best as a transit hub; the Inn river path is scenic but most serious routes head steeply into the mountains.',
+  },
+  {
+    vacation: "Austria's largest Tyrolean lake rewards a relaxed half-day or overnight — crystal-clear swimming, lakeside walks, and dramatic mountain walls.",
+    cycling:  'The lake loop is only ~12 km; pair it with the Inn valley path for a full 40–60 km day riding between forest and mountain.',
+  },
+  {
+    vacation: 'A bilingual gem worth a half-day for its arcaded medieval streets, the Ötzi the Iceman museum, and excellent South Tyrolean cuisine.',
+    cycling:  'Outstanding hub — the flat Adige/Etsch river cycle path runs north to Merano (~30 km) and south to Trento (~60 km) with no significant climbs.',
+  },
+  {
+    vacation: 'The most dramatic town on the northern lake — worth 1–2 nights for the medieval castle, watersports, and sheer cliffs plunging into the water.',
+    cycling:  'Excellent base — the Garda Bike lakeside trail heads south, and the legendary Ponale cliff trail offers a stunning off-road alternative.',
+  },
+  {
+    vacation: 'A postcard-perfect village clinging to the cliffs, worth an overnight for the Scaligero castle and the Monte Baldo cable car with panoramic views.',
+    cycling:  'Classic mid-lake stop on the eastern shore — the road south to Bardolino is a popular 40–50 km route with lake views the entire way.',
+  },
+  {
+    vacation: 'A pretty UNESCO-listed fortified town at the southern tip of the lake — good for a lunch stop or one night before heading to Verona or Venice.',
+    cycling:  'Gateway to the Mincio cycle path (Peschiera–Mantova, ~43 km), widely regarded as one of the most scenic flat rides in northern Italy.',
+  },
+  {
+    vacation: 'One of Italy\'s most beautiful cities — allow a full day for the Roman amphitheatre, Juliet\'s balcony, exceptional wine bars, and the old town.',
+    cycling:  'A useful transit point rather than a cycling destination; the Adige river path offers 40 km+ of flat riding but the city shines more on foot.',
+  },
+  {
+    vacation: 'Unmissable for at least one full day — the canals, St Mark\'s Basilica, and Rialto market are extraordinary, and no bikes are allowed on the island.',
+    cycling:  'No cycling in Venice itself; the Riviera del Brenta from Padova (~35 km) is the classic nearby day-trip route, flat along a canal-lined road.',
+  },
+  {
+    vacation: 'Italy\'s food capital rewards a half-day to full day — medieval towers, Europe\'s oldest university, and the world\'s best ragu straight from the source.',
+    cycling:  'Flat terrain and good bike infrastructure; the Via Emilia corridor and the Po Valley paths offer 40–60 km countryside rides through vineyards.',
+  },
+  {
+    vacation: 'Italy\'s liveliest beach resort is ideal for 1–2 relaxed days — a 15 km sandy Adriatic beach, a buzzing promenade, and the ancient Tiberius bridge.',
+    cycling:  'The flat Adriatic coast cycle path stretches 60+ km along the riviera — fast, easy riding with sea breeze and frequent gelato stops.',
+  },
+];
+
+function cityGuideHTML() {
+  return LOCATIONS.map((loc, i) => {
+    const info = CITY_INFO[i];
+    return `<div class="card">
+      <div class="card-header">${loc.name}<span class="sub">${loc.country}</span></div>
+      <div class="city-attr">
+        <span class="city-attr-label">🏖 Vacation</span>
+        <span>${info.vacation}</span>
+      </div>
+      <div class="city-attr">
+        <span class="city-attr-label">🚴 Cycling</span>
+        <span>${info.cycling}</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════════════════════════════════
 // TAB: GUIDE — combined render
 // ═══════════════════════════════════════════════════════════════
 
@@ -844,7 +923,9 @@ function renderGuideTab(currentData, previousData) {
     `<div class="section-title">Changes</div>` +
     changesHTML(currentData, previousData) +
     `<div class="section-title">Travel Recommendation</div>` +
-    travelHTML(currentData);
+    travelHTML(currentData) +
+    `<div class="section-title">City Guide</div>` +
+    cityGuideHTML();
 }
 
 // ═══════════════════════════════════════════════════════════════
