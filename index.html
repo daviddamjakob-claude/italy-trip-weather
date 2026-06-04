@@ -158,21 +158,30 @@
     .badge-moderate { background: #fef3c7; color: #92400e; }
     .badge-heavy    { background: #fee2e2; color: #991b1b; }
 
+    /* ── Fetch bar (always visible, above all tabs) ── */
+    #fetch-bar {
+      background: #fff; border-bottom: 1px solid var(--border);
+      padding: 10px 14px;
+      display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+    }
+    .fetch-btn {
+      border: none; border-radius: 6px;
+      padding: 7px 14px; font-size: 13px; font-weight: 600;
+      cursor: pointer; white-space: nowrap;
+    }
+    .fetch-btn:active { opacity: 0.8; }
+    .fetch-btn-om  { background: var(--accent); color: #fff; }
+    .fetch-btn-met { background: #1a7a4a;       color: #fff; }
+    #fetch-time { font-size: 12px; color: var(--text-muted); flex: 1; text-align: right; }
+    #source-badge {
+      font-size: 11px; font-weight: 600; padding: 2px 7px;
+      border-radius: 10px; display: none;
+    }
+    #source-badge.om  { background: #dbeafe; color: #1d4ed8; display: inline-block; }
+    #source-badge.met { background: #d1fae5; color: #065f46; display: inline-block; }
+
     /* ── Changes tab ── */
     #tab-changes .content-area { padding-top: 0; }
-    .refresh-bar {
-      background: #fff; border-bottom: 1px solid var(--border);
-      padding: 12px 16px;
-      display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
-    }
-    #refresh-btn {
-      background: var(--accent); color: #fff;
-      border: none; border-radius: 6px;
-      padding: 8px 18px; font-size: 14px; font-weight: 600;
-      cursor: pointer;
-    }
-    #refresh-btn:active { opacity: 0.8; }
-    #fetch-time { font-size: 12px; color: var(--text-muted); }
 
     .change-city-header {
       font-size: 13px; font-weight: 700;
@@ -211,12 +220,16 @@
 <!-- Error banner -->
 <div id="error-banner"></div>
 
+<!-- Fetch bar — always visible above tabs -->
+<div id="fetch-bar">
+  <button class="fetch-btn fetch-btn-om"  onclick="doFetchOM()">↻ Open-Meteo</button>
+  <button class="fetch-btn fetch-btn-met" onclick="doFetchMET()">↻ MET Norway</button>
+  <span id="source-badge"></span>
+  <span id="fetch-time"></span>
+</div>
+
 <!-- ══ TAB: Changes ══ -->
 <div id="tab-changes" class="tab-panel active">
-  <div class="refresh-bar">
-    <button id="refresh-btn" onclick="doRefresh()">↻ Refresh</button>
-    <span id="fetch-time"></span>
-  </div>
   <div class="content-area" id="changes-content"></div>
 </div>
 
@@ -288,38 +301,133 @@ function weatherCodeInfo(code) {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// DATA FETCHING
+// DATA FETCHING — Open-Meteo
 // ═══════════════════════════════════════════════════════════════
 
-async function fetchLocation(loc) {
+async function fetchLocationOM(loc) {
   const url = `https://api.open-meteo.com/v1/forecast?latitude=${loc.lat}&longitude=${loc.lon}` +
     `&hourly=temperature_2m,precipitation_probability,precipitation,weathercode` +
     `&timezone=Europe%2FRome&forecast_days=10`;
   const res = await fetch(url);
   if (!res.ok) throw new Error(`HTTP ${res.status} for ${loc.name}`);
-  return res.json();
+  const data = await res.json();
+  data._source = 'om';
+  return data;
 }
 
-async function fetchAllWeather() {
+async function doFetchOM() {
   showLoading(true);
   hideError();
   try {
-    const results = await Promise.all(LOCATIONS.map(fetchLocation));
-
-    // Rotate: current → previous
-    const current = localStorage.getItem('weather_current');
-    if (current) localStorage.setItem('weather_previous', current);
-
-    localStorage.setItem('weather_current', JSON.stringify(results));
-    localStorage.setItem('weather_fetched_at', new Date().toISOString());
-
+    const results = await Promise.all(LOCATIONS.map(fetchLocationOM));
+    storeResults(results, 'om');
     renderAll();
   } catch (err) {
-    showError('Could not reach Open-Meteo. Showing cached data if available. (' + err.message + ')');
-    renderAll(); // render whatever is cached
+    showError('Could not reach Open-Meteo. (' + err.message + ')');
+    renderAll();
   } finally {
     showLoading(false);
   }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// DATA FETCHING — MET Norway (api.met.no Locationforecast 2.0)
+// ═══════════════════════════════════════════════════════════════
+
+// MET Norway symbol_code → rain probability estimate and condition info
+function metSymbolInfo(symbol) {
+  if (!symbol) return { label: 'Cloudy', icon: '🌥', rainProb: 10 };
+  const s = symbol.split('_')[0]; // strip _day/_night suffix
+  const map = {
+    clearsky:        { label: 'Sunny',         icon: '☀️', rainProb: 0  },
+    fair:            { label: 'Partly cloudy',  icon: '🌤', rainProb: 5  },
+    partlycloudy:    { label: 'Partly cloudy',  icon: '⛅', rainProb: 10 },
+    cloudy:          { label: 'Cloudy',         icon: '☁️', rainProb: 15 },
+    fog:             { label: 'Foggy',          icon: '🌫', rainProb: 20 },
+    lightrain:       { label: 'Light rain',     icon: '🌦', rainProb: 60 },
+    rain:            { label: 'Rain',           icon: '🌧', rainProb: 80 },
+    heavyrain:       { label: 'Heavy rain',     icon: '🌧', rainProb: 95 },
+    lightsleet:      { label: 'Light sleet',    icon: '🌨', rainProb: 55 },
+    sleet:           { label: 'Sleet',          icon: '🌨', rainProb: 75 },
+    heavysleet:      { label: 'Heavy sleet',    icon: '🌨', rainProb: 90 },
+    lightsnow:       { label: 'Light snow',     icon: '❄️', rainProb: 50 },
+    snow:            { label: 'Snow',           icon: '❄️', rainProb: 70 },
+    heavysnow:       { label: 'Heavy snow',     icon: '❄️', rainProb: 85 },
+    lightrainshowers:{ label: 'Light showers',  icon: '🌦', rainProb: 50 },
+    rainshowers:     { label: 'Showers',        icon: '🌧', rainProb: 70 },
+    heavyrainshowers:{ label: 'Heavy showers',  icon: '🌧', rainProb: 90 },
+    thunderstorm:    { label: 'Thunderstorm',   icon: '⛈', rainProb: 95 },
+  };
+  return map[s] || { label: 'Cloudy', icon: '🌥', rainProb: 10 };
+}
+
+async function fetchLocationMET(loc) {
+  const url = `https://api.met.no/weatherapi/locationforecast/2.0/compact?lat=${loc.lat}&lon=${loc.lon}`;
+  const res = await fetch(url, {
+    headers: { 'User-Agent': 'italy-trip-weather/1.0 github.com/daviddamjakob-claude/italy-trip-weather' }
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status} for ${loc.name}`);
+  const raw = await res.json();
+
+  // Normalise MET Norway response into the same shape as Open-Meteo
+  // so buildLocationDays() can consume it unchanged.
+  const times = [], temperature_2m = [], precipitation_probability = [],
+        precipitation = [], weathercode = [];
+
+  for (const entry of raw.properties.timeseries) {
+    const dt = entry.time; // "2026-06-04T12:00:00Z"
+    // Convert UTC → Rome local time (UTC+2 in summer)
+    const localMs = new Date(dt).getTime() + 2 * 3600 * 1000;
+    const local = new Date(localMs);
+    const localStr = local.toISOString().replace('Z', '').slice(0, 16); // "2026-06-04T14:00"
+
+    const instant = entry.data.instant.details;
+    const next1h  = entry.data.next_1_hours;
+    if (!next1h) continue; // skip entries without per-hour data
+
+    const symbol = next1h.summary?.symbol_code || '';
+    const { rainProb } = metSymbolInfo(symbol);
+
+    times.push(localStr);
+    temperature_2m.push(instant.air_temperature);
+    precipitation_probability.push(rainProb);
+    precipitation.push(next1h.details?.precipitation_amount ?? 0);
+    // Store symbol as a string; buildLocationDays will call weatherCodeInfo on it —
+    // we intercept that by tagging the data with _source='met' and using metSymbolInfo.
+    weathercode.push(symbol);
+  }
+
+  return {
+    _source: 'met',
+    hourly: { time: times, temperature_2m, precipitation_probability, precipitation, weathercode }
+  };
+}
+
+async function doFetchMET() {
+  showLoading(true);
+  hideError();
+  try {
+    const results = await Promise.all(LOCATIONS.map(fetchLocationMET));
+    storeResults(results, 'met');
+    renderAll();
+  } catch (err) {
+    showError('Could not reach MET Norway. (' + err.message + ')');
+    renderAll();
+  } finally {
+    showLoading(false);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// STORE FETCH RESULTS
+// ═══════════════════════════════════════════════════════════════
+
+function storeResults(results, source) {
+  const current = localStorage.getItem('weather_current');
+  if (current) localStorage.setItem('weather_previous', current);
+  localStorage.setItem('weather_current', JSON.stringify(results));
+  localStorage.setItem('weather_fetched_at', new Date().toISOString());
+  localStorage.setItem('weather_source', source);
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -375,9 +483,16 @@ function buildLocationDays(apiData) {
       const totalPrecip  = parseFloat(relevant.reduce((s, e) => s + (e.precip ?? 0), 0).toFixed(1));
       const heaviness    = precipHeaviness(totalPrecip);
 
-      // Dominant code = code with highest severity
-      const dominantCode = relevant.reduce((best, e) => codeSeverity(e.code) > codeSeverity(best) ? e.code : best, relevant[0].code);
-      const { label, icon } = weatherCodeInfo(dominantCode);
+      // Dominant condition: pick entry with worst weather
+      // Codes may be WMO integers (Open-Meteo) or symbol strings (MET Norway)
+      const dominantEntry = relevant.reduce((best, e) => {
+        const sev = typeof e.code === 'string' ? metSymbolInfo(e.code).rainProb : codeSeverity(e.code);
+        const bestSev = typeof best.code === 'string' ? metSymbolInfo(best.code).rainProb : codeSeverity(best.code);
+        return sev > bestSev ? e : best;
+      }, relevant[0]);
+      const { label, icon } = typeof dominantEntry.code === 'string'
+        ? metSymbolInfo(dominantEntry.code)
+        : weatherCodeInfo(dominantEntry.code);
 
       return { name: slotDef.name, icon, condition: label, maxTemp, maxRainProb, totalPrecip, heaviness };
     });
@@ -456,9 +571,6 @@ function dayCardHTML(day) {
 
 function renderChangesTab(currentData, previousData) {
   const el = document.getElementById('changes-content');
-  const fetchedAt = localStorage.getItem('weather_fetched_at');
-  document.getElementById('fetch-time').textContent =
-    fetchedAt ? 'Last updated: ' + new Date(fetchedAt).toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'short' }) : '';
 
   if (!previousData) {
     el.innerHTML = `<div class="no-changes">No previous data to compare.<br>Tap Refresh to load your first forecast.</div>`;
@@ -599,6 +711,17 @@ function renderAll() {
   const current  = getCurrentData();
   const previous = getPreviousData();
 
+  // Update fetch bar metadata
+  const fetchedAt = localStorage.getItem('weather_fetched_at');
+  document.getElementById('fetch-time').textContent =
+    fetchedAt ? 'Updated: ' + new Date(fetchedAt).toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'short' }) : '';
+
+  const source = localStorage.getItem('weather_source') || '';
+  const badge = document.getElementById('source-badge');
+  badge.className = '';
+  if (source === 'om')  { badge.textContent = 'Open-Meteo';  badge.className = 'om'; }
+  if (source === 'met') { badge.textContent = 'MET Norway';  badge.className = 'met'; }
+
   renderChangesTab(current, previous);
   if (current) {
     renderByDayTab(current);
@@ -637,17 +760,13 @@ function hideError() {
   document.getElementById('error-banner').classList.remove('active');
 }
 
-async function doRefresh() {
-  await fetchAllWeather();
-}
-
 // ═══════════════════════════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════════════════════════
 
 window.addEventListener('load', async () => {
   if (!localStorage.getItem('weather_current')) {
-    await fetchAllWeather();
+    await doFetchOM(); // default to Open-Meteo on first load
   } else {
     renderAll();
   }
