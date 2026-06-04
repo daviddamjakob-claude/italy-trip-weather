@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Italy Trip Weather</title>
+  <style>
+    :root {
+      --accent: #2a7ad4;
+      --bg: #f5f5f5;
+      --card-bg: #ffffff;
+      --border: #e5e5e5;
+      --text: #1a1a1a;
+      --text-muted: #777;
+      --tab-h: 56px;
+      --selector-h: 48px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 14px;
+      padding-bottom: calc(var(--tab-h) + 8px);
+    }
+
+    /* ── Loading overlay ── */
+    #loading {
+      display: none;
+      position: fixed; inset: 0; z-index: 100;
+      background: rgba(255,255,255,0.85);
+      justify-content: center; align-items: center;
+      flex-direction: column; gap: 12px;
+    }
+    #loading.active { display: flex; }
+    .spinner {
+      width: 36px; height: 36px;
+      border: 3px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Error banner ── */
+    #error-banner {
+      display: none;
+      background: #fff3cd; border: 1px solid #ffc107;
+      color: #664d03; padding: 10px 16px;
+      font-size: 13px; text-align: center;
+    }
+    #error-banner.active { display: block; }
+
+    /* ── Bottom tab bar ── */
+    #tab-bar {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      height: var(--tab-h);
+      background: #fff; border-top: 1px solid var(--border);
+      display: flex; z-index: 50;
+    }
+    .tab-btn {
+      flex: 1; border: none; background: none;
+      font-size: 11px; color: var(--text-muted);
+      cursor: pointer; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 2px;
+      transition: color 0.15s;
+    }
+    .tab-btn .tab-icon { font-size: 20px; line-height: 1; }
+    .tab-btn.active { color: var(--accent); }
+
+    /* ── Tab panels ── */
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* ── Sticky selector bar ── */
+    .selector-bar {
+      position: sticky; top: 0; z-index: 40;
+      background: #fff; border-bottom: 1px solid var(--border);
+      padding: 8px 12px;
+      overflow-x: auto;
+      white-space: nowrap;
+      scrollbar-width: none;
+    }
+    .selector-bar::-webkit-scrollbar { display: none; }
+    .pill {
+      display: inline-block;
+      padding: 5px 12px;
+      border-radius: 20px;
+      border: 1px solid var(--border);
+      font-size: 13px;
+      cursor: pointer;
+      margin-right: 6px;
+      background: #fff;
+      color: var(--text);
+      transition: background 0.12s, color 0.12s;
+      white-space: nowrap;
+    }
+    .pill.active {
+      background: var(--accent);
+      color: #fff;
+      border-color: var(--accent);
+    }
+
+    /* ── Cards ── */
+    .content-area {
+      max-width: 480px;
+      margin: 0 auto;
+      padding: 12px;
+    }
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      margin-bottom: 12px;
+      overflow: hidden;
+    }
+    .card-header {
+      padding: 10px 14px;
+      font-weight: 600;
+      font-size: 15px;
+      border-bottom: 1px solid var(--border);
+      background: #fafafa;
+    }
+    .card-header .sub { font-size: 12px; font-weight: 400; color: var(--text-muted); margin-left: 6px; }
+
+    /* ── Slot rows ── */
+    .slot-row {
+      display: grid;
+      grid-template-columns: 88px 1fr 42px 46px 60px 44px;
+      align-items: center;
+      padding: 7px 10px;
+      border-bottom: 1px solid var(--border);
+      gap: 4px;
+    }
+    .slot-row:last-child { border-bottom: none; }
+    .slot-name { font-size: 12px; color: var(--text-muted); }
+    .slot-cond { font-size: 12px; display: flex; align-items: center; gap: 4px; }
+    .slot-cond .icon { font-size: 16px; }
+    .slot-temp { text-align: right; font-weight: 600; font-size: 14px; }
+    .slot-rain {
+      text-align: right; font-size: 12px; font-weight: 600;
+      border-radius: 4px; padding: 2px 4px;
+    }
+    .rain-low  { background: #dbeafe; color: #1d4ed8; }
+    .rain-mid  { background: #fef3c7; color: #92400e; }
+    .rain-high { background: #fee2e2; color: #991b1b; }
+    .slot-precip { text-align: right; font-size: 12px; color: var(--text-muted); }
+
+    /* ── Heaviness badges ── */
+    .badge {
+      display: inline-block; font-size: 10px; font-weight: 600;
+      padding: 2px 5px; border-radius: 4px; text-transform: uppercase;
+    }
+    .badge-dry      { background: #e5e5e5; color: #555; }
+    .badge-light    { background: #dbeafe; color: #1d4ed8; }
+    .badge-moderate { background: #fef3c7; color: #92400e; }
+    .badge-heavy    { background: #fee2e2; color: #991b1b; }
+
+    /* ── Changes tab ── */
+    #tab-changes .content-area { padding-top: 0; }
+    .refresh-bar {
+      background: #fff; border-bottom: 1px solid var(--border);
+      padding: 12px 16px;
+      display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    }
+    #refresh-btn {
+      background: var(--accent); color: #fff;
+      border: none; border-radius: 6px;
+      padding: 8px 18px; font-size: 14px; font-weight: 600;
+      cursor: pointer;
+    }
+    #refresh-btn:active { opacity: 0.8; }
+    #fetch-time { font-size: 12px; color: var(--text-muted); }
+
+    .change-city-header {
+      font-size: 13px; font-weight: 700;
+      color: var(--accent); padding: 10px 14px 2px;
+    }
+    .change-item {
+      padding: 8px 14px;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+    .change-item:last-child { border-bottom: none; }
+    .improve     { color: #15803d; }
+    .deteriorate { color: #b45309; }
+    .change-label { font-size: 11px; color: var(--text-muted); }
+
+    .no-changes {
+      text-align: center; padding: 40px 20px;
+      color: var(--text-muted); font-size: 14px;
+    }
+
+    /* ── Responsive ── */
+    @media (min-width: 520px) {
+      .slot-name { font-size: 13px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Loading overlay -->
+<div id="loading">
+  <div class="spinner"></div>
+  <span style="color:#555;font-size:14px;">Fetching weather data…</span>
+</div>
+
+<!-- Error banner -->
+<div id="error-banner"></div>
+
+<!-- ══ TAB: Changes ══ -->
+<div id="tab-changes" class="tab-panel active">
+  <div class="refresh-bar">
+    <button id="refresh-btn" onclick="doRefresh()">↻ Refresh</button>
+    <span id="fetch-time"></span>
+  </div>
+  <div class="content-area" id="changes-content"></div>
+</div>
+
+<!-- ══ TAB: By Day ══ -->
+<div id="tab-day" class="tab-panel">
+  <div class="selector-bar" id="city-pills"></div>
+  <div class="content-area" id="day-content"></div>
+</div>
+
+<!-- ══ TAB: By City ══ -->
+<div id="tab-city" class="tab-panel">
+  <div class="selector-bar" id="day-pills"></div>
+  <div class="content-area" id="city-content"></div>
+</div>
+
+<!-- Bottom tab bar -->
+<div id="tab-bar">
+  <button class="tab-btn active" onclick="showTab('changes')" id="btn-changes">
+    <span class="tab-icon">🔔</span>Changes
+  </button>
+  <button class="tab-btn" onclick="showTab('day')" id="btn-day">
+    <span class="tab-icon">📅</span>By Day
+  </button>
+  <button class="tab-btn" onclick="showTab('city')" id="btn-city">
+    <span class="tab-icon">📍</span>By City
+  </button>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+// CONSTANTS
+// ═══════════════════════════════════════════════════════════════
+
+const LOCATIONS = [
+  { name: 'Innsbruck',           country: 'Austria', lat: 47.2682, lon: 11.3933 },
+  { name: 'Achensee',            country: 'Austria', lat: 47.4200, lon: 11.7150 },
+  { name: 'Bolzano',             country: 'Italy',   lat: 46.4985, lon: 11.3548 },
+  { name: 'Riva del Garda',      country: 'Italy',   lat: 45.8850, lon: 10.8419 },
+  { name: 'Malcesine',           country: 'Italy',   lat: 45.7644, lon: 10.8229 },
+  { name: 'Peschiera del Garda', country: 'Italy',   lat: 45.4389, lon: 10.6841 },
+  { name: 'Verona',              country: 'Italy',   lat: 45.4384, lon: 10.9811 },
+  { name: 'Venice',              country: 'Italy',   lat: 45.4371, lon: 12.3345 },
+  { name: 'Bologna',             country: 'Italy',   lat: 44.4937, lon: 11.3386 },
+  { name: 'Rimini',              country: 'Italy',   lat: 44.0573, lon: 12.5670 },
+];
+
+// Time slot definitions (hour of day in local time)
+const SLOTS = [
+  { name: 'Morning',          hours: [7,8,9,10] },
+  { name: 'Early afternoon',  hours: [11,12,13,14] },
+  { name: 'Late afternoon',   hours: [15,16,17,18] },
+  { name: 'Evening',          hours: [19,20,21,22] },
+  { name: 'Night',            hours: [23,0,1,2,3,4,5,6] },
+];
+
+// WMO weather interpretation code → { label, icon }
+function weatherCodeInfo(code) {
+  if (code === 0)                    return { label: 'Sunny',        icon: '☀️' };
+  if (code <= 2)                     return { label: 'Partly cloudy', icon: '🌤' };
+  if (code === 3)                    return { label: 'Cloudy',        icon: '☁️' };
+  if (code >= 45 && code <= 48)      return { label: 'Foggy',         icon: '🌫' };
+  if (code >= 51 && code <= 57)      return { label: 'Drizzle',       icon: '🌦' };
+  if (code >= 61 && code <= 67)      return { label: 'Rain',          icon: '🌧' };
+  if (code >= 71 && code <= 77)      return { label: 'Snow',          icon: '❄️' };
+  if (code >= 80 && code <= 82)      return { label: 'Rain',          icon: '🌧' };
+  if (code >= 85 && code <= 86)      return { label: 'Snow',          icon: '❄️' };
+  if (code >= 95 && code <= 99)      return { label: 'Thunderstorm',  icon: '⛈' };
+  return { label: 'Cloudy', icon: '🌥' };
+}
+
+// ═══════════════════════════════════════════════════════════════
+// DATA FETCHING
+// ═══════════════════════════════════════════════════════════════
+
+async function fetchLocation(loc) {
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${loc.lat}&longitude=${loc.lon}` +
+    `&hourly=temperature_2m,precipitation_probability,precipitation,weathercode` +
+    `&timezone=Europe%2FRome&forecast_days=10`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`HTTP ${res.status} for ${loc.name}`);
+  return res.json();
+}
+
+async function fetchAllWeather() {
+  showLoading(true);
+  hideError();
+  try {
+    const results = await Promise.all(LOCATIONS.map(fetchLocation));
+
+    // Rotate: current → previous
+    const current = localStorage.getItem('weather_current');
+    if (current) localStorage.setItem('weather_previous', current);
+
+    localStorage.setItem('weather_current', JSON.stringify(results));
+    localStorage.setItem('weather_fetched_at', new Date().toISOString());
+
+    renderAll();
+  } catch (err) {
+    showError('Could not reach Open-Meteo. Showing cached data if available. (' + err.message + ')');
+    renderAll(); // render whatever is cached
+  } finally {
+    showLoading(false);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// DATA AGGREGATION
+// ═══════════════════════════════════════════════════════════════
+
+// Given raw API response for one location, build: days[] where each day has slots[]
+function buildLocationDays(apiData) {
+  const times       = apiData.hourly.time;               // "2025-06-04T07:00"
+  const temps       = apiData.hourly.temperature_2m;
+  const rainProbs   = apiData.hourly.precipitation_probability;
+  const precips     = apiData.hourly.precipitation;
+  const codes       = apiData.hourly.weathercode;
+
+  // Group by date
+  const byDate = {};
+  times.forEach((t, i) => {
+    const [dateStr, timeStr] = t.split('T');
+    const hour = parseInt(timeStr.split(':')[0], 10);
+    if (!byDate[dateStr]) byDate[dateStr] = [];
+    byDate[dateStr].push({ hour, temp: temps[i], rainProb: rainProbs[i], precip: precips[i], code: codes[i] });
+  });
+
+  const dates = Object.keys(byDate).sort();
+
+  return dates.map(dateStr => {
+    const entries = byDate[dateStr];
+    // Build a lookup: hour → entry (for same-day hours)
+    const byHour = {};
+    entries.forEach(e => { byHour[e.hour] = e; });
+
+    const slots = SLOTS.map(slotDef => {
+      // For the Night slot, hours 0-6 belong to the *next* calendar day in the API
+      // We pick hours from the current date's entries, so 23:00 of this date
+      // and 00:00–06:00 of the next date. We handle this by also checking the next date.
+      const nextDateStr = dates[dates.indexOf(dateStr) + 1];
+      const nextByHour = nextDateStr
+        ? Object.fromEntries((byDate[nextDateStr] || []).map(e => [e.hour, e]))
+        : {};
+
+      const relevant = slotDef.hours
+        .map(h => {
+          if (h >= 23) return byHour[h];           // same date (23:xx)
+          if (h <= 6)  return nextByHour[h];        // next date (00–06:xx)
+          return byHour[h];
+        })
+        .filter(Boolean);
+
+      if (!relevant.length) return null;
+
+      const maxTemp      = Math.round(Math.max(...relevant.map(e => e.temp)));
+      const maxRainProb  = Math.round(Math.max(...relevant.map(e => e.rainProb ?? 0)));
+      const totalPrecip  = parseFloat(relevant.reduce((s, e) => s + (e.precip ?? 0), 0).toFixed(1));
+      const heaviness    = precipHeaviness(totalPrecip);
+
+      // Dominant code = code with highest severity
+      const dominantCode = relevant.reduce((best, e) => codeSeverity(e.code) > codeSeverity(best) ? e.code : best, relevant[0].code);
+      const { label, icon } = weatherCodeInfo(dominantCode);
+
+      return { name: slotDef.name, icon, condition: label, maxTemp, maxRainProb, totalPrecip, heaviness };
+    });
+
+    return { date: dateStr, slots };
+  });
+}
+
+function codeSeverity(code) {
+  if (code >= 95) return 7;
+  if (code >= 80) return 6;
+  if (code >= 61) return 5;
+  if (code >= 51) return 4;
+  if (code >= 45) return 3;
+  if (code === 3)  return 2;
+  if (code <= 2)   return 1;
+  return 0;
+}
+
+function precipHeaviness(mm) {
+  if (mm <= 0.2) return 'dry';
+  if (mm <= 2)   return 'light';
+  if (mm <= 6)   return 'moderate';
+  return 'heavy';
+}
+
+// Build full dataset from raw API array (one entry per location)
+function buildAllData(rawArray) {
+  return rawArray.map((apiData, i) => ({
+    location: LOCATIONS[i],
+    days: buildLocationDays(apiData),
+  }));
+}
+
+// ═══════════════════════════════════════════════════════════════
+// RENDERING HELPERS
+// ═══════════════════════════════════════════════════════════════
+
+function rainClass(prob) {
+  if (prob <= 20) return 'rain-low';
+  if (prob <= 50) return 'rain-mid';
+  return 'rain-high';
+}
+
+function badgeClass(heaviness) {
+  return 'badge badge-' + heaviness;
+}
+
+function formatDate(dateStr) {
+  const d = new Date(dateStr + 'T12:00:00');
+  return d.toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' });
+}
+
+function slotRowHTML(slot) {
+  if (!slot) return '';
+  return `<div class="slot-row">
+    <span class="slot-name">${slot.name}</span>
+    <span class="slot-cond"><span class="icon">${slot.icon}</span><span>${slot.condition}</span></span>
+    <span class="slot-temp">${slot.maxTemp}°</span>
+    <span class="slot-rain ${rainClass(slot.maxRainProb)}">${slot.maxRainProb}%</span>
+    <span class="${badgeClass(slot.heaviness)}">${slot.heaviness}</span>
+    <span class="slot-precip">${slot.totalPrecip}mm</span>
+  </div>`;
+}
+
+function dayCardHTML(day) {
+  return `<div class="card">
+    <div class="card-header">${formatDate(day.date)}</div>
+    ${day.slots.map(slotRowHTML).join('')}
+  </div>`;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// TAB: CHANGES
+// ═══════════════════════════════════════════════════════════════
+
+function renderChangesTab(currentData, previousData) {
+  const el = document.getElementById('changes-content');
+  const fetchedAt = localStorage.getItem('weather_fetched_at');
+  document.getElementById('fetch-time').textContent =
+    fetchedAt ? 'Last updated: ' + new Date(fetchedAt).toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'short' }) : '';
+
+  if (!previousData) {
+    el.innerHTML = `<div class="no-changes">No previous data to compare.<br>Tap Refresh to load your first forecast.</div>`;
+    return;
+  }
+  if (!currentData) {
+    el.innerHTML = `<div class="no-changes">No data loaded yet. Tap Refresh.</div>`;
+    return;
+  }
+
+  let html = '';
+  let anyChange = false;
+
+  currentData.forEach((locData, li) => {
+    const prevLocData = previousData[li];
+    if (!prevLocData) return;
+
+    let cityChanges = '';
+
+    locData.days.forEach((day, di) => {
+      const prevDay = prevLocData.days[di];
+      if (!prevDay) return;
+
+      day.slots.forEach((slot, si) => {
+        const prevSlot = prevDay.slots[si];
+        if (!slot || !prevSlot) return;
+
+        const lines = [];
+
+        // Temperature change ≥2°C
+        const tempDiff = slot.maxTemp - prevSlot.maxTemp;
+        if (Math.abs(tempDiff) >= 2) {
+          const better = tempDiff > 0; // warmer = better
+          const cls = better ? 'improve' : 'deteriorate';
+          lines.push(`<div class="change-item ${cls}">
+            <span class="change-label">${formatDate(day.date)} · ${slot.name}</span><br>
+            Temperature: ${prevSlot.maxTemp}° → ${slot.maxTemp}° (${tempDiff > 0 ? '+' : ''}${tempDiff}°)
+          </div>`);
+        }
+
+        // Rain probability shift ≥20pp
+        const rainDiff = slot.maxRainProb - prevSlot.maxRainProb;
+        if (Math.abs(rainDiff) >= 20) {
+          const better = rainDiff < 0; // less rain = better
+          const cls = better ? 'improve' : 'deteriorate';
+          lines.push(`<div class="change-item ${cls}">
+            <span class="change-label">${formatDate(day.date)} · ${slot.name}</span><br>
+            Rain chance: ${prevSlot.maxRainProb}% → ${slot.maxRainProb}% (${rainDiff > 0 ? '+' : ''}${rainDiff}pp)
+          </div>`);
+        }
+
+        cityChanges += lines.join('');
+      });
+    });
+
+    if (cityChanges) {
+      anyChange = true;
+      html += `<div class="card">
+        <div class="card-header">${locData.location.name}<span class="sub">${locData.location.country}</span></div>
+        ${cityChanges}
+      </div>`;
+    }
+  });
+
+  el.innerHTML = anyChange ? html : `<div class="no-changes">No significant changes since last refresh.</div>`;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// TAB: BY DAY (city selector, shows all 10 days for that city)
+// ═══════════════════════════════════════════════════════════════
+
+let selectedCity = 0;
+
+function renderByDayTab(data) {
+  // Build city pills
+  const pillsEl = document.getElementById('city-pills');
+  pillsEl.innerHTML = LOCATIONS.map((loc, i) =>
+    `<span class="pill${i === selectedCity ? ' active' : ''}" onclick="selectCity(${i})">${loc.name}</span>`
+  ).join('');
+
+  const locData = data[selectedCity];
+  const contentEl = document.getElementById('day-content');
+  contentEl.innerHTML = locData ? locData.days.map(dayCardHTML).join('') : '<div class="no-changes">No data.</div>';
+}
+
+function selectCity(i) {
+  selectedCity = i;
+  const data = getCurrentData();
+  if (data) renderByDayTab(data);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// TAB: BY CITY (day selector, shows all 10 cities for that day)
+// ═══════════════════════════════════════════════════════════════
+
+let selectedDay = 0;
+
+function renderByCityTab(data) {
+  // Build day pills from first location's days
+  const days = data[0] ? data[0].days : [];
+  const pillsEl = document.getElementById('day-pills');
+  pillsEl.innerHTML = days.map((d, i) =>
+    `<span class="pill${i === selectedDay ? ' active' : ''}" onclick="selectDay(${i})">${formatDate(d.date)}</span>`
+  ).join('');
+
+  const contentEl = document.getElementById('city-content');
+  contentEl.innerHTML = data.map(locData => {
+    const day = locData.days[selectedDay];
+    if (!day) return '';
+    return `<div class="card">
+      <div class="card-header">${locData.location.name}<span class="sub">${locData.location.country}</span></div>
+      ${day.slots.map(slotRowHTML).join('')}
+    </div>`;
+  }).join('');
+}
+
+function selectDay(i) {
+  selectedDay = i;
+  const data = getCurrentData();
+  if (data) renderByCityTab(data);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// RENDER ALL TABS
+// ═══════════════════════════════════════════════════════════════
+
+function getCurrentData() {
+  const raw = localStorage.getItem('weather_current');
+  return raw ? buildAllData(JSON.parse(raw)) : null;
+}
+
+function getPreviousData() {
+  const raw = localStorage.getItem('weather_previous');
+  return raw ? buildAllData(JSON.parse(raw)) : null;
+}
+
+function renderAll() {
+  const current  = getCurrentData();
+  const previous = getPreviousData();
+
+  renderChangesTab(current, previous);
+  if (current) {
+    renderByDayTab(current);
+    renderByCityTab(current);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// TAB SWITCHING
+// ═══════════════════════════════════════════════════════════════
+
+const TAB_NAMES = ['changes', 'day', 'city'];
+
+function showTab(name) {
+  TAB_NAMES.forEach(t => {
+    document.getElementById('tab-' + t).classList.toggle('active', t === name);
+    document.getElementById('btn-' + t).classList.toggle('active', t === name);
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// UI HELPERS
+// ═══════════════════════════════════════════════════════════════
+
+function showLoading(on) {
+  document.getElementById('loading').classList.toggle('active', on);
+}
+
+function showError(msg) {
+  const el = document.getElementById('error-banner');
+  el.textContent = msg;
+  el.classList.add('active');
+}
+
+function hideError() {
+  document.getElementById('error-banner').classList.remove('active');
+}
+
+async function doRefresh() {
+  await fetchAllWeather();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════════════
+
+window.addEventListener('load', async () => {
+  if (!localStorage.getItem('weather_current')) {
+    await fetchAllWeather();
+  } else {
+    renderAll();
+  }
+});
+</script>
+</body>
+</html>
