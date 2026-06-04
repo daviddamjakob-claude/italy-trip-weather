@@ -267,9 +267,100 @@
       white-space: nowrap; min-width: 72px;
     }
 
+    /* ── City Guide — tappable card indicator ── */
+    .card.tappable { cursor: pointer; }
+    .card.tappable:active { background: #f9f9f9; }
+    .card-tap-hint {
+      font-size: 11px; color: var(--accent);
+      float: right; font-weight: 500; margin-left: 6px;
+    }
+
+    /* ── City Deep Dive Modal ── */
+    #city-modal {
+      display: none;
+      position: fixed; inset: 0; z-index: 200;
+    }
+    #city-modal.active { display: block; }
+    .modal-backdrop {
+      position: absolute; inset: 0;
+      background: rgba(0,0,0,0.45);
+    }
+    .modal-sheet {
+      position: absolute; bottom: 0; left: 0; right: 0;
+      max-height: 92vh;
+      background: #fff;
+      border-radius: 16px 16px 0 0;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      animation: sheetUp 0.22s ease-out;
+    }
+    @keyframes sheetUp {
+      from { transform: translateY(100%); }
+      to   { transform: translateY(0); }
+    }
+    .modal-handle-bar {
+      width: 40px; height: 4px; background: #ddd;
+      border-radius: 2px; margin: 12px auto 0;
+    }
+    .modal-header {
+      padding: 12px 16px 10px;
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: baseline; gap: 8px;
+    }
+    .modal-close {
+      margin-left: auto; font-size: 20px; line-height: 1;
+      color: var(--text-muted); cursor: pointer; padding: 2px 4px;
+    }
+    .modal-title { font-size: 18px; font-weight: 700; }
+    .modal-sub   { font-size: 13px; color: var(--text-muted); }
+    .modal-body  { padding: 0 0 80px; }
+
+    /* ── Deep dive sections ── */
+    .dd-section-title {
+      font-size: 11px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.6px; color: var(--text-muted);
+      padding: 16px 16px 8px;
+    }
+    .dd-item {
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--border);
+      display: flex; gap: 10px;
+    }
+    .dd-item:last-child { border-bottom: none; }
+    .dd-icon { font-size: 20px; flex-shrink: 0; line-height: 1.3; }
+    .dd-text {}
+    .dd-title { font-size: 13px; font-weight: 600; margin-bottom: 2px; }
+    .dd-desc  { font-size: 12px; color: var(--text-muted); line-height: 1.5; }
+
+    /* ── Cycling route items ── */
+    .route-item {
+      padding: 10px 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .route-item:last-child { border-bottom: none; }
+    .route-top {
+      display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+      margin-bottom: 3px;
+    }
+    .route-name  { font-size: 13px; font-weight: 600; flex: 1; }
+    .route-meta  { font-size: 11px; color: var(--text-muted); white-space: nowrap; }
+    .route-diff  {
+      font-size: 10px; font-weight: 700; padding: 2px 6px;
+      border-radius: 10px; text-transform: uppercase; white-space: nowrap;
+    }
+    .diff-easy       { background: #d1fae5; color: #065f46; }
+    .diff-moderate   { background: #fef3c7; color: #92400e; }
+    .diff-challenging{ background: #fee2e2; color: #991b1b; }
+    .route-desc  { font-size: 12px; color: var(--text-muted); line-height: 1.5; }
+
     /* ── Responsive ── */
     @media (min-width: 520px) {
       .slot-name { font-size: 13px; }
+      .modal-sheet { max-width: 480px; left: 50%; transform: translateX(-50%); }
+      @keyframes sheetUp {
+        from { transform: translateX(-50%) translateY(100%); }
+        to   { transform: translateX(-50%) translateY(0); }
+      }
     }
   </style>
 </head>
@@ -318,6 +409,22 @@
     <div class="selector-bar" id="city-slot-pills"></div>
   </div>
   <div class="content-area" id="city-content"></div>
+</div>
+
+<!-- ══ City Deep Dive Modal ══ -->
+<div id="city-modal">
+  <div class="modal-backdrop" onclick="closeModal()"></div>
+  <div class="modal-sheet">
+    <div class="modal-handle-bar"></div>
+    <div class="modal-header">
+      <div>
+        <span class="modal-title" id="modal-city-name"></span>
+        <span class="modal-sub" id="modal-city-country"></span>
+      </div>
+      <span class="modal-close" onclick="closeModal()">✕</span>
+    </div>
+    <div class="modal-body" id="modal-body"></div>
+  </div>
 </div>
 
 <!-- Bottom tab bar -->
@@ -908,8 +1015,8 @@ const CITY_INFO = [
 function cityGuideHTML() {
   return LOCATIONS.map((loc, i) => {
     const info = CITY_INFO[i];
-    return `<div class="card">
-      <div class="card-header">${loc.name}<span class="sub">${loc.country}</span></div>
+    return `<div class="card tappable" onclick="openCityModal(${i})">
+      <div class="card-header">${loc.name}<span class="sub">${loc.country}</span><span class="card-tap-hint">Deep dive →</span></div>
       <div class="city-attr">
         <span class="city-attr-label">🏖 Vacation</span>
         <span>${info.vacation}</span>
@@ -920,6 +1027,225 @@ function cityGuideHTML() {
       </div>
     </div>`;
   }).join('');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// CITY DEEP DIVE DATA
+// ═══════════════════════════════════════════════════════════════
+
+const CITY_DEEPDIVE = [
+  // 0 — Innsbruck
+  {
+    things: [
+      { icon:'🏛', title:'Altstadt & the Golden Roof', desc:'Wander the medieval arcaded streets and linger under the 2,657-tile gilded portico — then find a sunny café table and stay longer than planned.' },
+      { icon:'🧀', title:'Markthalle indoor market', desc:'Forty vendors selling alpine speck, melt-in-your-mouth mountain cheese, and pastries; there\'s a wine bar inside for a glass of Grüner Veltliner mid-morning.' },
+      { icon:'⛰', title:'Nordkette cable car', desc:'The Hungerburgbahn funicular + gondola whisks you to 2,334 m in 20 minutes — take it up, breathe the air, and descend to earn a coffee on the Altstadt terrace.' },
+      { icon:'🍧', title:'Aperitivo on Maria-Theresien-Strasse', desc:'The long boulevard turns golden at 6 pm; outdoor bars and gelaterias fill up, the Nordkette peaks glow behind the baroque column, and nobody is in a hurry.' },
+      { icon:'🏰', title:'Hofburg Palace courtyard', desc:'Free to enter, the baroque imperial courtyard is unhurried and beautiful — a perfect slow-afternoon wander before dinner at one of the Altstadt trattorias nearby.' },
+    ],
+    routes: [
+      { name:'Inn Valley flat loop to Hall & Schwaz', km:50, elev:150, diff:'easy', desc:'Follow the flat Inn cycle path east through market towns; return via the same path or a quiet riverside road. Perfect knee-friendly warm-up day.' },
+      { name:'Seefeld Plateau climb', km:55, elev:900, diff:'challenging', desc:'Innsbruck → Zirl → Seefeld — a sustained alpine climb to the plateau with sweeping views; rewarded with coffee at 1,200 m and a fast descent back.' },
+      { name:'Rum–Volders circuit', km:45, elev:600, diff:'moderate', desc:'A mix of flat Inn valley and rolling vineyard hills east of the city; quiet roads, little traffic, and good views back toward the Nordkette.' },
+      { name:'Brenner foothills to Ellbögen', km:40, elev:700, diff:'challenging', desc:'A classic local training loop heading south toward the Brenner Pass through Patsch and Ellbögen; steep but short, with a rewarding descent.' },
+      { name:'Hall in Tirol & Absam easy loop', km:42, elev:200, diff:'easy', desc:'Innsbruck → Hall in Tirol → Absam via the Inn cycle path; almost completely flat, ideal for recovery or mixed-ability riding.' },
+    ],
+  },
+  // 1 — Achensee
+  {
+    things: [
+      { icon:'🛖', title:'Gaisalm lakeside hut', desc:'Take the boat across or walk 30 minutes from Pertisau; order Kaiserschmarrn on the sunny terrace with sheer mountain walls behind you — one of Tyrol\'s best lunch spots.' },
+      { icon:'⛴', title:'Achensee passenger ferry', desc:'Hop between Maurach, Pertisau, Buchau, and Achenkirch without cycling; the views from the water of the turquoise lake and Karwendel are worth a full lap.' },
+      { icon:'🏊', title:'Swim at Strandbad Pertisau', desc:'Crystal-clear mountain water in a well-equipped lakeshore beach; arrive before 9 am for a sunbed, and stay for the mountain reflections on perfectly still mornings.' },
+      { icon:'🍷', title:'Dinner in Pertisau with lake views', desc:'Several cosy lakeside restaurants serve fresh Achensee trout, Tyrolean Gröstl, and local Riesling; the terrace tables at sunset are worth booking ahead.' },
+      { icon:'🌅', title:'Eastern shore sunset walk', desc:'The lakeside path from Buchau to Achenkirch has sun loungers and the Rofan peaks turning gold at dusk — the most peaceful hour on the lake.' },
+    ],
+    routes: [
+      { name:'Inn Valley to Achensee via Achenpass', km:42, elev:800, diff:'challenging', desc:'Climb from Jenbach in the valley up to the lake via the Achenpass; tough, rewarding, and the lake arrival at the top feels well-earned.' },
+      { name:'Lake loop with Rofan foothills', km:38, elev:500, diff:'moderate', desc:'Maurach → Pertisau → Achenkirch and back via the scenic eastern shore — manageable climbing with beautiful lake views throughout.' },
+      { name:'Achensee to Schwaz valley loop', km:60, elev:700, diff:'moderate', desc:'Descend to Jenbach then cycle the flat Inn Valley to Schwaz and back; mixes a great descent with easy valley riding.' },
+      { name:'Karwendel foothills — Falzthurn valley', km:45, elev:600, diff:'moderate', desc:'From Pertisau into the quiet Falzthurn side valley; few tourists, good tarmac, and dramatic limestone walls closing in around you.' },
+      { name:'Maurach–Wiesing–Rattenberg flat loop', km:55, elev:300, diff:'easy', desc:'Down to the Inn Valley via Wiesing and along the flat valley road to Rattenberg with its medieval castle; excellent knee-friendly option.' },
+    ],
+  },
+  // 2 — Bolzano
+  {
+    things: [
+      { icon:'🧊', title:'Ötzi the Iceman museum', desc:'The 5,300-year-old glacier mummy is extraordinary — his original copper axe, clothes, and food are all preserved; allow 2 hours and pair with the museum café.' },
+      { icon:'🧺', title:'Piazza delle Erbe food market', desc:'The daily market has local speck, Dolomite cheeses, fresh produce, and warm strudel; perfect for a self-assembled breakfast or picnic before a ride.' },
+      { icon:'🍷', title:'Talvera riverside park & Heuriger wine garden', desc:'The leafy promenade along the Talvera river ends at a traditional wine garden (Heuriger) serving Vernatsch by the glass — the ideal warm-afternoon stop.' },
+      { icon:'🏙', title:'Aperitivo under the Via dei Portici arcades', desc:'Bolzano\'s medieval covered arcade is the perfect place for an early evening Aperol Spritz, people-watching, and choosing a restaurant for dinner.' },
+      { icon:'🚡', title:'Renon cable car to the plateau', desc:'The Ritten/Renon cable car reaches the plateau in 12 minutes; up top you can walk between the famous earth pyramids with full Dolomite panoramas behind you.' },
+    ],
+    routes: [
+      { name:'Adige Valley to Merano and back', km:60, elev:100, diff:'easy', desc:'The flat Etschtal cycle path is paved like a motorway and runs arrow-straight through orchards and vineyards to Merano. The definitive knee-friendly day.' },
+      { name:'Alto Adige Wine Road & Caldaro lake', km:45, elev:400, diff:'moderate', desc:'Loop through the vineyard-covered hills south of Bolzano, swim in the warm Caldaro lake at the midpoint, and return past wine estates.' },
+      { name:'Adige Valley south to Salorno', km:65, elev:150, diff:'easy', desc:'Follow the flat cycle path through the apple orchards and Unterland vineyards south towards the narrow Salorno gorge and back — very easy riding.' },
+      { name:'Sarentino valley climb', km:50, elev:800, diff:'challenging', desc:'Head north into the quiet Sarntal on smooth mountain roads; a classic South Tyrolean climb through alpine meadows with zero tourist traffic.' },
+      { name:'Überetsch hills vineyard loop', km:55, elev:550, diff:'moderate', desc:'Rolling roads through the wine villages of Appiano and Caldaro south of the city; excellent asphalt, Dolomite views, and multiple wine stops.' },
+    ],
+  },
+  // 3 — Riva del Garda
+  {
+    things: [
+      { icon:'🥂', title:'Aperitivo at Piazza III Novembre', desc:'Order a Spritz at one of the lakefront bars and watch the afternoon Ora thermal wind arrive — windsurfers flood back to shore like a choreographed parade.' },
+      { icon:'🏰', title:'La Rocca fortress & museum', desc:'The medieval castle surrounded by a moat houses the Upper Garda Museum; the courtyard is free to wander and offers a perfect view of the Garda cliffs above.' },
+      { icon:'🥩', title:'Carne salada — Riva\'s local delicacy', desc:'Lean beef cured in herbs and spices, served raw as carpaccio or grilled with beans; try it at Ristorante Al Volt or any serious lakefront trattoria.' },
+      { icon:'🏖', title:'Spiaggia dei Sabbioni beach', desc:'Riva\'s main free beach — pebble and grass, well-equipped with bars and showers; arrive before 8:30 am for the best morning swim before the wind picks up.' },
+      { icon:'🪨', title:'Ponale cliff path', desc:'The old military road carved into the cliff above the lake; even just the first kilometre on foot gives spectacular, vertiginous views over the northern lake.' },
+    ],
+    routes: [
+      { name:'Garda Bike south to Malcesine', km:43, elev:300, diff:'moderate', desc:'The classic lakeside route along the Gardesana road to Malcesine; some tunnels, dramatic cliff sections, and the return by ferry is a popular option.' },
+      { name:'Sarca river valley loop via Arco', km:46, elev:350, diff:'easy', desc:'Flat cycle path alongside the Sarca river past olive groves, the dramatic Arco castle, and into the Marocche boulder field — beautiful and nearly car-free.' },
+      { name:'Ledro Valley road climb', km:55, elev:600, diff:'challenging', desc:'Climb the winding mountain road to the beautiful Ledro lake at 655 m; the descent back to Riva is fast and the lake reward at the top is worth every metre.' },
+      { name:'Limone sul Garda return', km:55, elev:400, diff:'moderate', desc:'North along the cliff-hugging Gardesana road to Limone — one of the lake\'s most scenic villages, with a famous lemon grove and excellent lakefront lunch spots.' },
+      { name:'Tenno lake & Fiavè plateau', km:60, elev:700, diff:'challenging', desc:'Climb to the hidden turquoise Tenno lake and continue to the Fiavè plateau; a demanding but stunning route that almost nobody else does.' },
+    ],
+  },
+  // 4 — Malcesine
+  {
+    things: [
+      { icon:'🚡', title:'Monte Baldo cable car', desc:'Rotating gondolas rise to 1,760 m with 360° views; at the summit there are hiking paths, a mountain restaurant, and the clearest panorama of the full lake.' },
+      { icon:'🏰', title:'Scaligero Castle — Goethe\'s viewpoint', desc:'The 14th-century clifftop castle is free on the lower ramparts; Goethe sketched the lake here in 1786. Allow an hour of slow exploration and lake gazing.' },
+      { icon:'🐟', title:'Lakefront lunch with lake fish', desc:'Order fresh carpione or perch from the lake at Ristorante Da Nikolas or Pizzeria Garden — both have wooden decking over the water and excellent local white wine.' },
+      { icon:'🌊', title:'Morning swim from the old harbour', desc:'Calm before 9 am, the tiny harbour beach has crystal-clear green water; the surrounding medieval buildings reflected in the lake feel genuinely cinematic.' },
+      { icon:'🫒', title:'Parco San Vigilo (3 km south)', desc:'A private olive grove park with a pool, sunbeds, and lagoon access for €15; unhurried, beautiful, and almost entirely unknown to day-trippers.' },
+    ],
+    routes: [
+      { name:'Gardesana south to Bardolino', km:50, elev:350, diff:'moderate', desc:'The classic eastern shore run south; the road widens after Brenzone and the views across the lake to the Brescian hills are beautiful all the way.' },
+      { name:'Lake Tenno loop via Nago and Arco', km:60, elev:700, diff:'challenging', desc:'North to Torbole, up to Arco, and over the ridge to the hidden Tenno lake before descending via Riva; a demanding and spectacular day.' },
+      { name:'Malcesine to Garda town and back', km:65, elev:400, diff:'moderate', desc:'The road to the southern headland at Garda is one of the lake\'s best stretches; the town itself is elegant with a great lunch piazza.' },
+      { name:'Monte Baldo lower slopes — San Zeno', km:45, elev:750, diff:'challenging', desc:'Climb into the olive-terraced hills above Malcesine to San Zeno di Montagna; tough, quiet roads and panoramic Dolomite views at the top.' },
+      { name:'Malcesine to Riva northbound', km:43, elev:300, diff:'moderate', desc:'Going north the Gardesana is more dramatic and less busy; the Campione road tunnel is carved through the cliff face and emerges over the open lake.' },
+    ],
+  },
+  // 5 — Peschiera del Garda
+  {
+    things: [
+      { icon:'🏰', title:'Walk the Venetian fortress walls', desc:'The 16th-century star-shaped bastions are UNESCO-listed; the full circuit takes 45 minutes with lake views and the canals flowing through the fortifications below.' },
+      { icon:'🍝', title:'Lunch inside the fortress canals', desc:'The restaurants lining the internal canals serve bigoli in salsa (pasta with anchovies), fresh lake fish, and cold Soave; tables overhang the water.' },
+      { icon:'🌊', title:'Borghetto sul Mincio by bike', desc:'Fifteen minutes from Peschiera, this tiny village has medieval watermills, a romantic arched bridge over the Mincio, and several excellent hidden trattorias.' },
+      { icon:'🏊', title:'Swim at Lido Cappuccini', desc:'Peschiera\'s best beach just outside the walls; clear lake water, relaxed atmosphere, and a bar for post-swim Aperol. Arrive before 9 am for a sunbed.' },
+      { icon:'🛥', title:'Sunset Prosecco boat cruise', desc:'Several operators run evening lake cruises from the harbour; the Alps turning pink over the water while sipping Prosecco is Peschiera\'s perfect closing scene.' },
+    ],
+    routes: [
+      { name:'Mincio cycle path to Mantova', km:43, elev:80, diff:'easy', desc:'Italy\'s most popular flat cycle path follows the Mincio river through waterlily-covered bends and medieval villages to the Renaissance city of Mantova. Perfect for knees.' },
+      { name:'Mincio–Garda ring via Borghetto', km:61, elev:200, diff:'easy', desc:'The gentlest loop in the area: Valeggio sul Mincio, the watermills of Borghetto, and back along the lake road through olive groves and moraine hills.' },
+      { name:'Garda south shore to Sirmione', km:50, elev:150, diff:'easy', desc:'Flat lakeside road to the Roman ruins on the Sirmione peninsula; the dramatic position on the lake and the Roman baths make it a natural lunch stop.' },
+      { name:'Soave castle and wine country', km:65, elev:400, diff:'moderate', desc:'East into the Veneto hills through the white Soave DOC vineyards; the medieval Soave castle is a perfect halfway stop with tasting at the co-operative winery.' },
+      { name:'Moraine hills circuit via Monzambano', km:55, elev:350, diff:'moderate', desc:'The glacial moraine landscape east of the lake; quiet roads with good tarmac, excellent views back to the water, and almost no other cyclists.' },
+    ],
+  },
+  // 6 — Verona
+  {
+    things: [
+      { icon:'🥂', title:'Aperitivo on Piazza delle Erbe', desc:'Verona\'s most beautiful square fills at 6 pm; order an Amarone cocktail or classic Campari Spritz with bruschetta, and stay for the medieval towers turning gold.' },
+      { icon:'🏛', title:'Arena di Verona at dusk', desc:'The 2,000-year-old Roman amphitheatre is free to walk around outside; if the opera festival is running (June–August), even cheap seats are a life experience.' },
+      { icon:'🌊', title:'Adige riverside picnic + Castel San Pietro', desc:'Walk the riverside path to Ponte Pietra, take the funicular up to Castel San Pietro for the best panorama in the city, then picnic on the bank below.' },
+      { icon:'🍷', title:'Valpolicella wine tasting day trip', desc:'Half a day into the hills northwest of the city; Villa Mosconi Bertani or Zenato offer Amarone and Ripasso tastings with vineyard walks included.' },
+      { icon:'🍝', title:'Dinner at Osteria al Duca or Al Pompiere', desc:'Two of Verona\'s most atmospheric old trattorias; order the risotto all\'Amarone and the horse-meat brasato — Veronese classics you won\'t find elsewhere.' },
+    ],
+    routes: [
+      { name:'Valpolicella wine circuit', km:55, elev:600, diff:'moderate', desc:'Roll through Fumane, Marano, and Sant\'Ambrogio — the heart of Amarone country; vineyards, wine estates, and hilltop viewpoints all the way.' },
+      { name:'Adige Valley to Soave castle', km:60, elev:500, diff:'moderate', desc:'East into the rolling hills through white wine country to the medieval Soave castle; the surrounding DOC vineyards are beautiful in morning light.' },
+      { name:'Adige cycle path to Borghetto & Mincio', km:50, elev:150, diff:'easy', desc:'Mostly flat; follows the Adige path north then cuts west to the watermills of Borghetto sul Mincio — a lovely, easy day with a great lunch stop.' },
+      { name:'Soave foothills and Lessini valleys', km:45, elev:350, diff:'moderate', desc:'Gentler rolling hills east of the city through Caldiero and the Lessini foothills; good tarmac and the vineyards are picture-perfect on clear mornings.' },
+      { name:'Mincio flat ride to Mantova (one way)', km:65, elev:100, diff:'easy', desc:'Verona → Goito → Mantova entirely flat; ends in one of Italy\'s finest Renaissance cities for lunch, then take the train back to Verona.' },
+    ],
+  },
+  // 7 — Venice
+  {
+    things: [
+      { icon:'🍷', title:'Morning cicchetti crawl in Cannaregio', desc:'Order a tiny ombra di vino and cicchetti (crostini with baccalà, sardines, artichoke) at Osteria ai Ormesini or Al Timon — standing at the bar, canal-side, before 10 am.' },
+      { icon:'🥂', title:'Bacaro lunch at Cantina Do Mori (est. 1462)', desc:'One of Venice\'s oldest wine bars near the Rialto; tiny, standing room only, and utterly authentic. Order whatever the barman pours and share a plate of mozzarella.' },
+      { icon:'🌈', title:'Burano island ferry trip', desc:'Forty minutes by Vaporetto 12; the rainbow-painted fishermen\'s houses are as beautiful as advertised, and the lacemaking shops and canal-side lunch are far calmer than the main island.' },
+      { icon:'🌅', title:'Sunset from San Giorgio Maggiore tower', desc:'Take the short ferry to the island (€5) and the lift to the bell tower; the 360° lagoon view with the Doge\'s Palace across the water beats the Campanile and has no queue.' },
+      { icon:'🚶', title:'Cannaregio fondamenta evening stroll', desc:'The canal-side stretch in northern Cannaregio is local, unhurried, and full of good wine bars; sit outside with a Spritz Select and watch gondolas and delivery boats.' },
+    ],
+    routes: [
+      { name:'Riviera del Brenta from Padova', km:45, elev:50, diff:'easy', desc:'Train to Padova, then cycle the canal towpath past magnificent Palladian villas to Fusina, then ferry to Venice. Flat, shaded, and one of Italy\'s most beautiful rides.' },
+      { name:'Venice Lido to Chioggia island loop', km:55, elev:20, diff:'easy', desc:'Ferry to the Lido, cycle south along the narrow barrier islands with open Adriatic on one side and lagoon on the other; ferry back from Chioggia. Uniquely flat and scenic.' },
+      { name:'Treviso and Sile river path', km:65, elev:40, diff:'easy', desc:'Train to Treviso, cycle the leafy Sile river cycle path towards Jesolo; completely flat, quiet, and through the fringe of prosecco country.' },
+      { name:'Padova to Este via Colli Euganei', km:60, elev:300, diff:'moderate', desc:'The volcanic Euganean Hills provide the only real climbs near Venice; the spa town of Abano and the medieval Este castle are natural stops.' },
+      { name:'Mestre to Dolo Brenta short loop', km:50, elev:30, diff:'easy', desc:'Mainland Mestre → Dolo → Stra along the Brenta canal; a shorter alternative to the full Brenta route, flat and shaded, leaving the afternoon free for Venice.' },
+    ],
+  },
+  // 8 — Bologna
+  {
+    things: [
+      { icon:'🥩', title:'Mercato di Mezzo food market', desc:'Bologna\'s covered market in the old centre; buy a mortadella sandwich, a wedge of Parmigiano, and eat under the medieval porticos — the city\'s best €6 lunch.' },
+      { icon:'🍷', title:'Aperitivo at Osteria del Sole (est. 1465)', desc:'Bring your own food from the market, buy wine by the glass at the bar, sit at communal wooden tables. The oldest wine bar in Bologna and genuinely unchanged for centuries.' },
+      { icon:'🏙', title:'Climb the Asinelli Tower at sunrise', desc:'498 steps to a rooftop panorama over Bologna\'s orange skyline and distant Apennines; the best views in the city and almost nobody there before 9 am.' },
+      { icon:'🍝', title:'Sunday lunch at Trattoria Anna Maria', desc:'The quintessential Bologna Sunday: tagliatelle al ragù, lasagna verde, tortellini in brodo, carafe of Sangiovese. Book a day ahead — it fills fast and deservedly so.' },
+      { icon:'🚶', title:'Portico walk to San Luca Basilica', desc:'The world\'s longest portico (3.8 km, 666 arches) climbs to the hilltop basilica; a slow, shaded ascent with coffee stops and a sweeping city panorama at the top.' },
+    ],
+    routes: [
+      { name:'Ciclovia del Sole south to Pianoro', km:45, elev:450, diff:'moderate', desc:'The Eurovelo 7 climate route climbs gently into the Apennine foothills through oak forests on quiet roads; a beautiful introduction to the Bologna hills.' },
+      { name:'Po Valley flat ride to Ferrara', km:65, elev:60, diff:'easy', desc:'Utterly flat canal-path riding through the Po plain to the magnificent Renaissance walled city of Ferrara; one of Italy\'s most satisfying flat cycling days.' },
+      { name:'Colli Bolognesi wine circuit', km:55, elev:600, diff:'moderate', desc:'Roll through Monte San Pietro and Monteveglio in the Pignoletto white wine hills; vineyards, medieval abbeys, and a hilltop trattoria for lunch.' },
+      { name:'Ciclovia del Navile canal path', km:50, elev:40, diff:'easy', desc:'A completely flat towpath along the historic Navile canal north of the city; green, quiet, and ideal for knee-friendly riding without hills.' },
+      { name:'Bazzano & Zola Predosa castle circuit', km:60, elev:500, diff:'moderate', desc:'Medieval castle circuit through the gentle Bolognese hills; Bazzano\'s Rocca dei Bentivoglio is stunning, the asphalt is excellent, and the tourist buses never come here.' },
+    ],
+  },
+  // 9 — Rimini
+  {
+    things: [
+      { icon:'🏖', title:'Morning ritual at a beach club', desc:'Rimini\'s stabilimenti balneari provide sunbeds, showers, and bar service; Bagno 84 Graziano is calm and local. Arrive by 8:30 am for first swim in the flat Adriatic.' },
+      { icon:'🫓', title:'Piadina from a chiosco kiosk', desc:'Rimini\'s street food: flatbread stuffed with squacquerone cheese, rocket, and prosciutto; the best kiosks are on Via Roma, inland from the beach, and cost under €5.' },
+      { icon:'🎨', title:'Borgo San Giuliano Fellini murals', desc:'The old fishermen\'s quarter has colourful street murals inspired by Federico Fellini; shaded streets, hidden trattorias, and the best photography in Rimini.' },
+      { icon:'🏛', title:'Tiberius Bridge & river aperitivo', desc:'The 2,000-year-old Roman bridge is completely intact and particularly beautiful at night; the bars on the riverbank below serve excellent Negroni sbagliato at sunset.' },
+      { icon:'☀️', title:'Grand Hotel terrace Spritz', desc:'Fellini\'s childhood obsession is now a beautiful Art Deco hotel; the terrace bar at sunset, with the Adriatic turning orange behind the beach, is Rimini at its best.' },
+    ],
+    routes: [
+      { name:'Adriatic coast north to Cattolica', km:55, elev:80, diff:'easy', desc:'The most popular local ride: dedicated cycle path along the riviera through Riccione and Misano to Cattolica; flat, sea breeze, and plenty of gelato stops.' },
+      { name:'San Marino Republic summit loop', km:60, elev:900, diff:'challenging', desc:'The famous climb to the three medieval towers of San Marino; demanding but iconic, with a spectacular panorama from one of Europe\'s smallest and oldest states.' },
+      { name:'Marecchia valley to Pennabilli', km:65, elev:600, diff:'moderate', desc:'Follow the Marecchia river inland through Santarcangelo and Verucchio into the Apennine hills; quiet roads, chestnut forests, and undiscovered medieval villages.' },
+      { name:'Valconca hills and Montefiore loop', km:55, elev:500, diff:'moderate', desc:'A mix of flat coastal and rolling hills south of Rimini; the 15th-century fortress at Montefiore Conca is a great lunch stop with views to the Adriatic.' },
+      { name:'Flat coast south to Pesaro', km:55, elev:70, diff:'easy', desc:'Completely flat, cycle path the whole way along the riviera to the elegant Renaissance city of Pesaro; return by train or ride the same path back.' },
+    ],
+  },
+];
+
+// ═══════════════════════════════════════════════════════════════
+// CITY MODAL — open / close / render
+// ═══════════════════════════════════════════════════════════════
+
+function openCityModal(i) {
+  const loc  = LOCATIONS[i];
+  const data = CITY_DEEPDIVE[i];
+  document.getElementById('modal-city-name').textContent    = loc.name;
+  document.getElementById('modal-city-country').textContent = ' · ' + loc.country;
+
+  const thingsHTML = data.things.map(t => `
+    <div class="dd-item">
+      <span class="dd-icon">${t.icon}</span>
+      <div class="dd-text">
+        <div class="dd-title">${t.title}</div>
+        <div class="dd-desc">${t.desc}</div>
+      </div>
+    </div>`).join('');
+
+  const routesHTML = data.routes.map(r => `
+    <div class="route-item">
+      <div class="route-top">
+        <span class="route-name">${r.name}</span>
+        <span class="route-diff diff-${r.diff}">${r.diff}</span>
+      </div>
+      <div class="route-meta">${r.km} km · ${r.elev} m elevation</div>
+      <div class="route-desc">${r.desc}</div>
+    </div>`).join('');
+
+  document.getElementById('modal-body').innerHTML =
+    `<div class="dd-section-title">5 Things to Do</div>${thingsHTML}` +
+    `<div class="dd-section-title">5 Cycling Routes</div>${routesHTML}`;
+
+  document.getElementById('city-modal').classList.add('active');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeModal() {
+  document.getElementById('city-modal').classList.remove('active');
+  document.body.style.overflow = '';
 }
 
 // ═══════════════════════════════════════════════════════════════
