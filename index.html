@@ -74,15 +74,21 @@
     .tab-panel { display: none; }
     .tab-panel.active { display: block; }
 
-    /* ── Sticky selector bar ── */
-    .selector-bar {
+    /* ── Sticky selector bars ── */
+    .selector-wrap {
       position: sticky; top: 0; z-index: 40;
-      background: #fff; border-bottom: 1px solid var(--border);
+      background: #fff;
+      border-bottom: 1px solid var(--border);
+    }
+    .selector-bar {
+      background: #fff;
       padding: 8px 12px;
       overflow-x: auto;
       white-space: nowrap;
       scrollbar-width: none;
+      border-bottom: 1px solid var(--border);
     }
+    .selector-bar:last-child { border-bottom: none; }
     .selector-bar::-webkit-scrollbar { display: none; }
     .pill {
       display: inline-block;
@@ -235,13 +241,19 @@
 
 <!-- ══ TAB: By Day ══ -->
 <div id="tab-day" class="tab-panel">
-  <div class="selector-bar" id="city-pills"></div>
+  <div class="selector-wrap">
+    <div class="selector-bar" id="city-pills"></div>
+    <div class="selector-bar" id="day-slot-pills"></div>
+  </div>
   <div class="content-area" id="day-content"></div>
 </div>
 
 <!-- ══ TAB: By City ══ -->
 <div id="tab-city" class="tab-panel">
-  <div class="selector-bar" id="day-pills"></div>
+  <div class="selector-wrap">
+    <div class="selector-bar" id="day-pills"></div>
+    <div class="selector-bar" id="city-slot-pills"></div>
+  </div>
   <div class="content-area" id="city-content"></div>
 </div>
 
@@ -580,10 +592,28 @@ function slotRowHTML(slot) {
   </div>`;
 }
 
-function dayCardHTML(day) {
+// Slot filter names — index 0 = "All", 1–5 match SLOTS indices
+const SLOT_FILTER_LABELS = ['All', 'Morning', 'Early afternoon', 'Late afternoon', 'Evening', 'Night'];
+
+function slotPillsHTML(selectedSlot, onclickFn) {
+  return SLOT_FILTER_LABELS.map((label, i) =>
+    `<span class="pill${i === selectedSlot ? ' active' : ''}" onclick="${onclickFn}(${i})">${label}</span>`
+  ).join('');
+}
+
+// Return the slots of a day filtered by the selected slot index (0 = all)
+function filteredSlots(day, selectedSlot) {
+  if (selectedSlot === 0) return day.slots;
+  const s = day.slots[selectedSlot - 1]; // index 1→slot[0], etc.
+  return s ? [s] : [];
+}
+
+function dayCardHTML(day, selectedSlot) {
+  const slots = filteredSlots(day, selectedSlot);
+  if (!slots.length) return '';
   return `<div class="card">
     <div class="card-header">${formatDate(day.date)}</div>
-    ${day.slots.map(slotRowHTML).join('')}
+    ${slots.map(slotRowHTML).join('')}
   </div>`;
 }
 
@@ -661,21 +691,23 @@ function renderChangesTab(currentData, previousData) {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// TAB: BY DAY (city selector, shows all 10 days for that city)
+// TAB: BY DAY (city selector + slot filter, shows 10 days for a city)
 // ═══════════════════════════════════════════════════════════════
 
-let selectedCity = 0;
+let selectedCity     = 0;
+let selectedSlotDay  = 0; // 0 = All
 
 function renderByDayTab(data) {
-  // Build city pills
-  const pillsEl = document.getElementById('city-pills');
-  pillsEl.innerHTML = LOCATIONS.map((loc, i) =>
+  document.getElementById('city-pills').innerHTML = LOCATIONS.map((loc, i) =>
     `<span class="pill${i === selectedCity ? ' active' : ''}" onclick="selectCity(${i})">${loc.name}</span>`
   ).join('');
 
+  document.getElementById('day-slot-pills').innerHTML = slotPillsHTML(selectedSlotDay, 'selectSlotDay');
+
   const locData = data[selectedCity];
-  const contentEl = document.getElementById('day-content');
-  contentEl.innerHTML = locData ? locData.days.map(dayCardHTML).join('') : '<div class="no-changes">No data.</div>';
+  document.getElementById('day-content').innerHTML = locData
+    ? locData.days.map(day => dayCardHTML(day, selectedSlotDay)).join('')
+    : '<div class="no-changes">No data.</div>';
 }
 
 function selectCity(i) {
@@ -684,33 +716,47 @@ function selectCity(i) {
   if (data) renderByDayTab(data);
 }
 
+function selectSlotDay(i) {
+  selectedSlotDay = i;
+  const data = getCurrentData();
+  if (data) renderByDayTab(data);
+}
+
 // ═══════════════════════════════════════════════════════════════
-// TAB: BY CITY (day selector, shows all 10 cities for that day)
+// TAB: BY CITY (day selector + slot filter, shows 10 cities for a day)
 // ═══════════════════════════════════════════════════════════════
 
-let selectedDay = 0;
+let selectedDay      = 0;
+let selectedSlotCity = 0; // 0 = All
 
 function renderByCityTab(data) {
-  // Build day pills from first location's days
   const days = data[0] ? data[0].days : [];
-  const pillsEl = document.getElementById('day-pills');
-  pillsEl.innerHTML = days.map((d, i) =>
+  document.getElementById('day-pills').innerHTML = days.map((d, i) =>
     `<span class="pill${i === selectedDay ? ' active' : ''}" onclick="selectDay(${i})">${formatDate(d.date)}</span>`
   ).join('');
 
-  const contentEl = document.getElementById('city-content');
-  contentEl.innerHTML = data.map(locData => {
+  document.getElementById('city-slot-pills').innerHTML = slotPillsHTML(selectedSlotCity, 'selectSlotCity');
+
+  document.getElementById('city-content').innerHTML = data.map(locData => {
     const day = locData.days[selectedDay];
     if (!day) return '';
+    const slots = filteredSlots(day, selectedSlotCity);
+    if (!slots.length) return '';
     return `<div class="card">
       <div class="card-header">${locData.location.name}<span class="sub">${locData.location.country}</span></div>
-      ${day.slots.map(slotRowHTML).join('')}
+      ${slots.map(slotRowHTML).join('')}
     </div>`;
   }).join('');
 }
 
 function selectDay(i) {
   selectedDay = i;
+  const data = getCurrentData();
+  if (data) renderByCityTab(data);
+}
+
+function selectSlotCity(i) {
+  selectedSlotCity = i;
   const data = getCurrentData();
   if (data) renderByCityTab(data);
 }
