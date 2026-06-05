@@ -189,20 +189,41 @@
     /* ── Changes tab ── */
     #tab-changes .content-area { padding-top: 0; }
 
-    .change-city-card { margin-bottom: 10px; }
-    .change-city-top  { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+    /* Horizontal scroll strip */
+    .changes-scroll {
+      display: flex; flex-direction: row; gap: 10px;
+      overflow-x: auto; padding: 4px 14px 12px;
+      scroll-snap-type: x mandatory;
+      -webkit-overflow-scrolling: touch;
+    }
+    .changes-scroll::-webkit-scrollbar { display: none; }
+    .change-city-card {
+      flex: 0 0 82vw; max-width: 320px;
+      scroll-snap-align: start;
+      border: 1px solid var(--border); border-radius: 10px;
+      padding: 12px 14px; background: #fff;
+      box-sizing: border-box;
+    }
+    .change-city-top  { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 8px; }
     .change-city-name { font-size: 15px; font-weight: 700; }
     .change-city-country { font-size: 12px; color: var(--text-muted); }
     .sentiment-badge {
       display: inline-block; padding: 2px 9px; border-radius: 20px;
       font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
-      margin-left: auto; white-space: nowrap;
+      margin-left: auto; white-space: nowrap; flex-shrink: 0;
     }
     .sentiment-positive   { background: #dcfce7; color: #15803d; }
     .sentiment-negative   { background: #fef3c7; color: #b45309; }
     .sentiment-balanced   { background: #e0f2fe; color: #0369a1; }
     .sentiment-none       { background: #f1f5f9; color: #64748b; }
-    .change-summary { font-size: 13px; line-height: 1.6; color: var(--text); margin-bottom: 5px; }
+    .change-bullets { list-style: none; margin: 0 0 8px; padding: 0; }
+    .change-bullets li {
+      font-size: 13px; line-height: 1.55; color: var(--text);
+      padding: 2px 0 2px 16px; position: relative;
+    }
+    .change-bullets li::before { content: '•'; position: absolute; left: 4px; color: var(--text-muted); }
+    .change-bullets li.pos::before { content: '↑'; color: #15803d; }
+    .change-bullets li.neg::before { content: '↓'; color: #b45309; }
     .change-cycling { font-size: 12px; line-height: 1.55; color: #0369a1; padding: 6px 10px;
                       background: #f0f9ff; border-radius: 6px; }
     .change-cycling::before { content: '🚴 '; }
@@ -223,9 +244,13 @@
     }
 
     /* ── Itinerary cards ── */
+    .itin-why {
+      font-size: 13px; line-height: 1.65; color: var(--text);
+      padding: 10px 14px 10px; border-bottom: 1px solid var(--border);
+    }
     .itin-desc {
       font-size: 12px; color: var(--text-muted);
-      padding: 0 14px 10px; border-bottom: 1px solid var(--border);
+      padding: 6px 14px 10px; border-bottom: 1px solid var(--border);
     }
     .itin-row {
       padding: 8px 14px;
@@ -855,41 +880,55 @@ function changesHTML(currentData, previousData) {
     else if (negCount >= posCount * 2)              { sentiment = 'Mainly negative'; sentClass = 'sentiment-negative'; }
     else                                            { sentiment = 'Balanced';        sentClass = 'sentiment-balanced'; }
 
-    // Build 2-3 sentence summary
-    const sentences = [];
-    if (tempUps.length) {
-      const best = tempUps.reduce((a, b) => b.diff > a.diff ? b : a);
-      sentences.push(`Temperatures are trending warmer — the biggest gain is +${best.diff}° on ${formatDate(best.date)} (${best.slot}, now ${best.now}°).`);
-    }
-    if (tempDowns.length) {
-      const worst = tempDowns.reduce((a, b) => b.diff < a.diff ? b : a);
-      sentences.push(`Some days are now forecast cooler — the biggest drop is ${worst.diff}° on ${formatDate(worst.date)} (${worst.slot}, now ${worst.now}°).`);
-    }
-    if (rainDowns.length) {
-      const best = rainDowns.reduce((a, b) => b.diff < a.diff ? b : a);
-      sentences.push(`Rain chances have dropped — best improvement is ${best.diff}pp on ${formatDate(best.date)} (${best.slot}, now ${best.now}%).`);
-    }
-    if (rainUps.length) {
-      const worst = rainUps.reduce((a, b) => b.diff > a.diff ? b : a);
-      sentences.push(`Rain chances have increased — biggest jump is +${worst.diff}pp on ${formatDate(worst.date)} (${worst.slot}, now ${worst.now}%).`);
-    }
-    const summary = sentences.slice(0, 3).join(' ');
+    // Build bullet list of changes (grouped by day, not slot)
+    // Aggregate per-date: best temp gain, worst temp drop, best rain drop, worst rain rise
+    const byDate = {};
+    const addEntry = (arr, key, cls) => arr.forEach(e => {
+      if (!byDate[e.date]) byDate[e.date] = {};
+      if (!byDate[e.date][key] || Math.abs(e.diff) > Math.abs(byDate[e.date][key].diff))
+        byDate[e.date][key] = { ...e, cls };
+    });
+    addEntry(tempUps,   'tempUp',   'pos');
+    addEntry(tempDowns, 'tempDown', 'neg');
+    addEntry(rainDowns, 'rainDown', 'pos');
+    addEntry(rainUps,   'rainUp',   'neg');
 
-    // 1-2 sentence cycling recommendation
+    const bullets = [];
+    Object.keys(byDate).sort().forEach(date => {
+      const d = byDate[date];
+      if (d.tempUp)   bullets.push({ cls:'pos', text:`${formatDate(date)}: warmer (+${d.tempUp.diff}°, now ${d.tempUp.now}°)` });
+      if (d.tempDown) bullets.push({ cls:'neg', text:`${formatDate(date)}: cooler (${d.tempDown.diff}°, now ${d.tempDown.now}°)` });
+      if (d.rainDown) bullets.push({ cls:'pos', text:`${formatDate(date)}: less rain (${d.rainDown.diff}pp, now ${d.rainDown.now}%)` });
+      if (d.rainUp)   bullets.push({ cls:'neg', text:`${formatDate(date)}: more rain (+${d.rainUp.diff}pp, now ${d.rainUp.now}%)` });
+    });
+    const bulletsHTML = `<ul class="change-bullets">${bullets.slice(0,5).map(b =>
+      `<li class="${b.cls}">${b.text}</li>`).join('')}</ul>`;
+
+    // Cycling recommendation: focus on best/worst days to visit
+    // Find the best and worst days in the current forecast for this city
+    const dayScores = locData.days.map(day => {
+      const slots = day.slots.filter(Boolean);
+      if (!slots.length) return null;
+      const maxRain = Math.max(...slots.map(s => s.maxRainProb));
+      const avgTemp = Math.round(slots.reduce((s, e) => s + e.maxTemp, 0) / slots.length);
+      const score = 100 - maxRain * 0.75 - (avgTemp < 17 ? (17 - avgTemp) * 2 : 0);
+      return { date: day.date, score: Math.round(score), maxRain, avgTemp };
+    }).filter(Boolean);
+
+    dayScores.sort((a, b) => b.score - a.score);
+    const bestDays  = dayScores.slice(0, 2);
+    const worstDays = dayScores.slice(-2).reverse();
+
     let cycling = '';
     if (sentClass === 'sentiment-positive') {
-      const bestDay = [...tempUps, ...rainDowns]
-        .sort((a, b) => Math.abs(b.diff) - Math.abs(a.diff))[0];
-      cycling = `${locData.location.name} looks like a strong cycling day — consider scheduling your ride around ${formatDate(bestDay.date)} for the best conditions.`;
+      cycling = `Best days to be in ${locData.location.name}: ${bestDays.map(d => formatDate(d.date)).join(' and ')} — the forecast improvement makes these ideal for a full ride. ${negCount > 0 ? `Avoid ${worstDays[0] ? formatDate(worstDays[0].date) : 'the rainier days'} if you can.` : ''}`.trim();
     } else if (sentClass === 'sentiment-negative') {
-      const worstDay = [...tempDowns, ...rainUps]
-        .sort((a, b) => Math.abs(b.diff) - Math.abs(a.diff))[0];
-      cycling = `Conditions at ${locData.location.name} have worsened — if flexible, shift your ride day away from ${formatDate(worstDay.date)} or plan a shorter route.`;
+      cycling = `The forecast for ${locData.location.name} has deteriorated — ${worstDays.map(d => formatDate(d.date)).join(' and ')} now look risky. If you have flexibility, ${bestDays[0] ? formatDate(bestDays[0].date) : 'an earlier day'} still holds up best.`;
     } else {
-      cycling = `${locData.location.name} has mixed updates — stick to morning slots where rain probability is lower and make the call day-of.`;
+      cycling = `${locData.location.name} has mixed changes — ${bestDays[0] ? formatDate(bestDays[0].date) : 'the first few days'} remain your strongest cycling window based on the updated forecast.`;
     }
 
-    html += `<div class="card change-city-card">
+    html += `<div class="change-city-card">
       <div class="change-city-top">
         <div>
           <span class="change-city-name">${locData.location.name}</span>
@@ -897,12 +936,14 @@ function changesHTML(currentData, previousData) {
         </div>
         <span class="sentiment-badge ${sentClass}">${sentiment}</span>
       </div>
-      <div class="change-summary">${summary}</div>
+      ${bulletsHTML}
       <div class="change-cycling">${cycling}</div>
     </div>`;
   });
 
-  return anyChange ? html : `<div class="no-changes">No significant changes since last refresh.</div>`;
+  return anyChange
+    ? `<div class="changes-scroll">${html}</div>`
+    : `<div class="no-changes">No significant changes since last refresh.</div>`;
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -1019,7 +1060,62 @@ function itineraryCardHTML(itin, data) {
 }
 
 function travelHTML(data) {
-  return ITINERARIES.map(itin => itineraryCardHTML(itin, data)).join('');
+  if (!data) return ITINERARIES.map(itin => itineraryCardHTML(itin, data)).join('');
+
+  // Score both itineraries and pick the better one
+  const scored = ITINERARIES.map(itin => {
+    let total = 0, count = 0;
+    itin.days.forEach(day => {
+      const locData = data[day.locIdx];
+      const dayData = locData?.days.find(d => d.date === day.date);
+      const r = scoreDayForActivity(dayData, day.slots);
+      if (r !== null) { total += r.score; count++; }
+    });
+    return { itin, avg: count ? Math.round(total / count) : 0 };
+  });
+
+  scored.sort((a, b) => b.avg - a.avg);
+  const winner = scored[0];
+  const loser  = scored[1];
+  const diff   = winner.avg - loser.avg;
+
+  // Build the "why" explanation
+  // Find the 2 best cycling days and 1 worst day in the winning route
+  const winnerDayResults = winner.itin.days.map(day => {
+    const locData = data[day.locIdx];
+    const dayData = locData?.days.find(d => d.date === day.date);
+    const r = scoreDayForActivity(dayData, day.slots);
+    return { day, r };
+  }).filter(x => x.r !== null);
+  winnerDayResults.sort((a, b) => b.r.score - a.r.score);
+  const bestDays  = winnerDayResults.slice(0, 2);
+  const worstDay  = winnerDayResults[winnerDayResults.length - 1];
+
+  const bestNames  = bestDays.map(x => `${x.day.loc} on ${formatDate(x.day.date)} (${x.r.maxTemp}°, ${x.r.maxRain}% rain)`).join(' and ');
+  const worstDesc  = worstDay ? `${worstDay.day.loc} on ${formatDate(worstDay.day.date)} (${worstDay.r.maxRain}% rain chance)` : '';
+
+  let why = `Based on the current forecast, <strong>${winner.itin.name}</strong> scores ${winner.avg}/100 on average — `;
+  if (diff >= 10) {
+    why += `clearly ahead of the alternative (${loser.itin.name} scores ${loser.avg}/100). `;
+  } else {
+    why += `narrowly edging out ${loser.itin.name} (${loser.avg}/100). `;
+  }
+  why += `Your best cycling days on this route are ${bestNames}. `;
+  if (worstDesc) {
+    why += `The trickiest day is ${worstDesc} — keep that one flexible or plan a shorter ride. `;
+  }
+  why += winner.avg >= 70
+    ? `Overall the weather looks very promising — go for it.`
+    : winner.avg >= 50
+    ? `Overall conditions are decent; pack a rain layer just in case.`
+    : `Overall the forecast is mixed — stay flexible and check again closer to departure.`;
+
+  const cardHTML = itineraryCardHTML(winner.itin, data);
+  // Inject the "why" block right after the itin-desc
+  return cardHTML.replace(
+    `<div class="itin-desc">`,
+    `<div class="itin-why">${why}</div><div class="itin-desc">`
+  );
 }
 
 // ═══════════════════════════════════════════════════════════════
