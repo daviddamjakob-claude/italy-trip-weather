@@ -243,17 +243,41 @@
       padding: 18px 14px 8px;
     }
 
+    /* ── Itinerary swipe strip ── */
+    .itin-scroll {
+      display: flex; flex-direction: row; gap: 10px;
+      overflow-x: auto; padding: 4px 14px 12px;
+      scroll-snap-type: x mandatory;
+      -webkit-overflow-scrolling: touch;
+    }
+    .itin-scroll::-webkit-scrollbar { display: none; }
+    .itin-card {
+      flex: 0 0 88vw; max-width: 360px;
+      scroll-snap-align: start;
+      border: 1px solid var(--border); border-radius: 10px;
+      background: #fff; box-sizing: border-box; overflow: hidden;
+    }
+
     /* ── Itinerary cards ── */
+    .itin-header {
+      display: flex; align-items: baseline; gap: 8px;
+      padding: 12px 14px 8px; border-bottom: 1px solid var(--border);
+    }
+    .itin-title { font-size: 15px; font-weight: 700; flex: 1; }
+    .itin-score-chip {
+      flex-shrink: 0; font-size: 13px; font-weight: 700;
+      padding: 3px 9px; border-radius: 20px;
+    }
     .itin-why {
-      font-size: 13px; line-height: 1.65; color: var(--text);
+      font-size: 12px; line-height: 1.65; color: var(--text);
       padding: 10px 14px 10px; border-bottom: 1px solid var(--border);
     }
     .itin-desc {
       font-size: 12px; color: var(--text-muted);
-      padding: 6px 14px 10px; border-bottom: 1px solid var(--border);
+      padding: 6px 14px 8px; border-bottom: 1px solid var(--border);
     }
     .itin-row {
-      padding: 8px 14px;
+      padding: 7px 14px;
       border-bottom: 1px solid var(--border);
     }
     .itin-row:last-child { border-bottom: none; }
@@ -265,19 +289,15 @@
     .itin-wx    { display: flex; align-items: center; gap: 4px; font-size: 12px; white-space: nowrap; }
     .itin-act   { font-size: 12px; color: var(--text-muted); margin-top: 2px; padding-left: 68px; }
 
-    /* ── Score badges & dots ── */
-    .score-badge {
-      font-size: 11px; font-weight: 600; padding: 2px 7px;
-      border-radius: 10px; margin-left: 6px; vertical-align: middle;
-    }
-    .score-dot {
-      display: inline-block; width: 9px; height: 9px;
-      border-radius: 50%; flex-shrink: 0;
-    }
+    /* ── Score colour scale (used for chip + dots) ── */
     .score-great { background: #d1fae5; color: #065f46; }
     .score-good  { background: #dbeafe; color: #1d4ed8; }
     .score-ok    { background: #fef3c7; color: #92400e; }
     .score-poor  { background: #fee2e2; color: #991b1b; }
+    .score-dot {
+      display: inline-block; width: 9px; height: 9px;
+      border-radius: 50%; flex-shrink: 0;
+    }
     .score-dot.score-great { background: #10b981; }
     .score-dot.score-good  { background: #3b82f6; }
     .score-dot.score-ok    { background: #f59e0b; }
@@ -936,6 +956,21 @@ const ITINERARIES = [
       { date:'2026-06-14', locIdx:0, loc:'Innsbruck',           activity:'🚴 Bolzano → Achensee → Innsbruck (or train)',     slots:[0,1] },
     ],
   },
+  {
+    name: 'Route C — Bolzano Focus',
+    desc: 'Start in Bolzano for cycling in the Adige valley and wine roads, then drop south to Verona, Garda, and Venice.',
+    days: [
+      { date:'2026-06-06', locIdx:2, loc:'Bolzano',             activity:'🚂 Train Innsbruck → Bolzano (~1.5h), settle in',   slots:[2,3] },
+      { date:'2026-06-07', locIdx:2, loc:'Bolzano',             activity:'🚴 Adige valley cycle to Merano and back (~60km)',   slots:[0,1,2] },
+      { date:'2026-06-08', locIdx:2, loc:'Bolzano',             activity:'🚴 Wine road loop via Caldaro lake (~45km)',         slots:[0,1,2] },
+      { date:'2026-06-09', locIdx:6, loc:'Verona',              activity:'🚂 Train Bolzano → Verona (~1.5h), evening Arena',  slots:[1,2,3] },
+      { date:'2026-06-10', locIdx:3, loc:'Riva del Garda',      activity:'🚂 Train Verona → Rovereto → Riva, swim afternoon', slots:[1,2,3] },
+      { date:'2026-06-11', locIdx:4, loc:'Malcesine',           activity:'🚴 Riva → Malcesine by bike (~40km south)',         slots:[0,1,2] },
+      { date:'2026-06-12', locIdx:7, loc:'Venice',              activity:'🚂 Train Peschiera → Venice (~2h)',                  slots:[0,1,2,3] },
+      { date:'2026-06-13', locIdx:7, loc:'Venice',              activity:'🚶 Venice day 2 — islands & cicchetti',             slots:[0,1,2,3] },
+      { date:'2026-06-14', locIdx:0, loc:'Innsbruck',           activity:'🚂 Venice → Verona → Bolzano → Innsbruck',         slots:[0,1] },
+    ],
+  },
 ];
 
 // Score a day-at-location for cycling/activity suitability (0–100)
@@ -955,15 +990,16 @@ function scoreDayForActivity(dayData, slotIndices) {
   return { score, maxRain, maxTemp, repSlot };
 }
 
-function scoreLabel(score) {
-  if (score === null) return { text: '—',    cls: 'score-none'  };
-  if (score >= 75)    return { text: 'Great', cls: 'score-great' };
-  if (score >= 55)    return { text: 'Good',  cls: 'score-good'  };
-  if (score >= 35)    return { text: 'OK',    cls: 'score-ok'    };
-  return               { text: 'Poor',  cls: 'score-poor'  };
+// scoreClass: colour tier used for per-day dots and score chip
+function scoreClass(score) {
+  if (score === null || score === undefined) return 'score-none';
+  if (score >= 75) return 'score-great';
+  if (score >= 55) return 'score-good';
+  if (score >= 35) return 'score-ok';
+  return 'score-poor';
 }
 
-function itineraryCardHTML(itin, data) {
+function itineraryCardHTML(itin, data, why) {
   let totalScore = 0, scored = 0;
 
   const rows = itin.days.map(day => {
@@ -975,24 +1011,30 @@ function itineraryCardHTML(itin, data) {
   });
 
   const avgScore = scored ? Math.round(totalScore / scored) : null;
-  const { text: scoreTxt, cls: scoreCls } = scoreLabel(avgScore);
+  const chipCls  = scoreClass(avgScore);
+  const chipTxt  = avgScore !== null ? `${avgScore}/100` : '—';
 
-  let html = `<div class="card">
-    <div class="card-header">${itin.name} <span class="score-badge ${scoreCls}">${scoreTxt}</span></div>
-    <div class="itin-desc">${itin.desc}</div>`;
+  let html = `<div class="itin-card">
+    <div class="itin-header">
+      <span class="itin-title">${itin.name}</span>
+      <span class="itin-score-chip ${chipCls}">${chipTxt}</span>
+    </div>`;
+
+  if (why) html += `<div class="itin-why">${why}</div>`;
+  html += `<div class="itin-desc">${itin.desc}</div>`;
 
   rows.forEach(({ day, result }) => {
     const dateLabel = formatDate(day.date);
     let wx = '';
     if (result) {
-      const { text, cls } = scoreLabel(result.score);
+      const cls = scoreClass(result.score);
       wx = `<span class="itin-wx">
               ${result.repSlot.icon} ${result.maxTemp}°&thinsp;
               <span class="${rainClass(result.maxRain)}" style="border-radius:3px;padding:1px 4px;font-size:11px;">${result.maxRain}%</span>
               <span class="score-dot ${cls}"></span>
             </span>`;
     } else {
-      wx = `<span class="itin-wx" style="color:var(--text-muted)">no data</span>`;
+      wx = `<span class="itin-wx" style="color:var(--text-muted)">—</span>`;
     }
     html += `<div class="itin-row">
       <div class="itin-top">
@@ -1008,63 +1050,67 @@ function itineraryCardHTML(itin, data) {
   return html;
 }
 
-function travelHTML(data) {
-  if (!data) return ITINERARIES.map(itin => itineraryCardHTML(itin, data)).join('');
-
-  // Score both itineraries and pick the better one
-  const scored = ITINERARIES.map(itin => {
-    let total = 0, count = 0;
-    itin.days.forEach(day => {
-      const locData = data[day.locIdx];
-      const dayData = locData?.days.find(d => d.date === day.date);
-      const r = scoreDayForActivity(dayData, day.slots);
-      if (r !== null) { total += r.score; count++; }
-    });
-    return { itin, avg: count ? Math.round(total / count) : 0 };
-  });
-
-  scored.sort((a, b) => b.avg - a.avg);
-  const winner = scored[0];
-  const loser  = scored[1];
-  const diff   = winner.avg - loser.avg;
-
-  // Build the "why" explanation
-  // Find the 2 best cycling days and 1 worst day in the winning route
-  const winnerDayResults = winner.itin.days.map(day => {
+// Build a "why" paragraph for a given itinerary + scored day results
+function buildWhyText(itin, data, avg, othersAvg) {
+  const dayResults = itin.days.map(day => {
     const locData = data[day.locIdx];
     const dayData = locData?.days.find(d => d.date === day.date);
     const r = scoreDayForActivity(dayData, day.slots);
     return { day, r };
   }).filter(x => x.r !== null);
-  winnerDayResults.sort((a, b) => b.r.score - a.r.score);
-  const bestDays  = winnerDayResults.slice(0, 2);
-  const worstDay  = winnerDayResults[winnerDayResults.length - 1];
 
-  const bestNames  = bestDays.map(x => `${x.day.loc} on ${formatDate(x.day.date)} (${x.r.maxTemp}°, ${x.r.maxRain}% rain)`).join(' and ');
-  const worstDesc  = worstDay ? `${worstDay.day.loc} on ${formatDate(worstDay.day.date)} (${worstDay.r.maxRain}% rain chance)` : '';
+  dayResults.sort((a, b) => b.r.score - a.r.score);
+  const bestDays  = dayResults.slice(0, 2);
+  const worstDay  = dayResults[dayResults.length - 1];
 
-  let why = `Based on the current forecast, <strong>${winner.itin.name}</strong> scores ${winner.avg}/100 on average — `;
-  if (diff >= 10) {
-    why += `clearly ahead of the alternative (${loser.itin.name} scores ${loser.avg}/100). `;
-  } else {
-    why += `narrowly edging out ${loser.itin.name} (${loser.avg}/100). `;
+  // Score formula explanation
+  let why = `<strong>Score ${avg}/100</strong> — averaged across all 9 days. `;
+  why += `Each day is scored as: 100 − rain% × 0.75 − precip(mm) × 6, minus a cold penalty if under 17 °C. `;
+
+  // Best days
+  if (bestDays.length) {
+    const names = bestDays.map(x => `${x.day.loc} on ${formatDate(x.day.date)} (${x.r.maxTemp}°, ${x.r.maxRain}% rain, score ${x.r.score})`).join(' and ');
+    why += `Best days: ${names}. `;
   }
-  why += `Your best cycling days on this route are ${bestNames}. `;
-  if (worstDesc) {
-    why += `The trickiest day is ${worstDesc} — keep that one flexible or plan a shorter ride. `;
+  // Worst day
+  if (worstDay && worstDay.r.score < 70) {
+    why += `Weakest day: ${worstDay.day.loc} on ${formatDate(worstDay.day.date)} (${worstDay.r.maxRain}% rain, score ${worstDay.r.score}) — keep this one flexible. `;
   }
-  why += winner.avg >= 70
-    ? `Overall the weather looks very promising — go for it.`
-    : winner.avg >= 50
-    ? `Overall conditions are decent; pack a rain layer just in case.`
-    : `Overall the forecast is mixed — stay flexible and check again closer to departure.`;
+  // vs others
+  if (othersAvg.length) {
+    const others = othersAvg.map(o => `${o.name} (${o.avg}/100)`).join(', ');
+    why += `Other options: ${others}.`;
+  }
 
-  const cardHTML = itineraryCardHTML(winner.itin, data);
-  // Inject the "why" block right after the itin-desc
-  return cardHTML.replace(
-    `<div class="itin-desc">`,
-    `<div class="itin-why">${why}</div><div class="itin-desc">`
-  );
+  return why;
+}
+
+function travelHTML(data) {
+  // Score all itineraries
+  const scoredItins = ITINERARIES.map(itin => {
+    let total = 0, count = 0;
+    itin.days.forEach(day => {
+      if (!data) return;
+      const locData = data[day.locIdx];
+      const dayData = locData?.days.find(d => d.date === day.date);
+      const r = scoreDayForActivity(dayData, day.slots);
+      if (r !== null) { total += r.score; count++; }
+    });
+    return { itin, avg: count ? Math.round(total / count) : null };
+  });
+
+  // Sort best first
+  scoredItins.sort((a, b) => (b.avg ?? 0) - (a.avg ?? 0));
+
+  const cards = scoredItins.map((s, idx) => {
+    const othersAvg = scoredItins
+      .filter((_, j) => j !== idx)
+      .map(o => ({ name: o.itin.name, avg: o.avg }));
+    const why = data ? buildWhyText(s.itin, data, s.avg, othersAvg) : null;
+    return itineraryCardHTML(s.itin, data, why);
+  }).join('');
+
+  return `<div class="itin-scroll">${cards}</div>`;
 }
 
 // ═══════════════════════════════════════════════════════════════
