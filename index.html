@@ -436,16 +436,16 @@
 <!-- Bottom tab bar -->
 <div id="tab-bar">
   <button class="tab-btn active" onclick="showTab('cityguide')" id="btn-cityguide">
-    <span class="tab-icon">🗺</span>City Guide
+    <span class="tab-icon">🏙️</span>City Guide
   </button>
   <button class="tab-btn" onclick="showTab('weather')" id="btn-weather">
-    <span class="tab-icon">🔔</span>Weather Guide
+    <span class="tab-icon">🌤️</span>Weather Guide
   </button>
   <button class="tab-btn" onclick="showTab('day')" id="btn-day">
-    <span class="tab-icon">📅</span>By Day
+    <span class="tab-icon">🌆</span>Weather by City
   </button>
   <button class="tab-btn" onclick="showTab('city')" id="btn-city">
-    <span class="tab-icon">📍</span>By City
+    <span class="tab-icon">📆</span>Weather by Day
   </button>
 </div>
 
@@ -637,7 +637,11 @@ async function doFetchMET() {
 
 function storeResults(results, source) {
   const current = localStorage.getItem('weather_current');
-  if (current) localStorage.setItem('weather_previous', current);
+  if (current) {
+    localStorage.setItem('weather_previous', current);
+    const prevTime = localStorage.getItem('weather_fetched_at');
+    if (prevTime) localStorage.setItem('weather_previous_fetched_at', prevTime);
+  }
   localStorage.setItem('weather_current', JSON.stringify(results));
   localStorage.setItem('weather_fetched_at', new Date().toISOString());
   localStorage.setItem('weather_source', source);
@@ -1413,8 +1417,11 @@ function renderAll() {
 
   // Update fetch bar metadata
   const fetchedAt = localStorage.getItem('weather_fetched_at');
-  document.getElementById('fetch-time').textContent =
-    fetchedAt ? 'Updated: ' + new Date(fetchedAt).toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'short' }) : '';
+  const prevFetchedAt = localStorage.getItem('weather_previous_fetched_at');
+  const fmt = iso => new Date(iso).toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'short' });
+  let timeText = fetchedAt ? 'Updated: ' + fmt(fetchedAt) : '';
+  if (prevFetchedAt) timeText += '  ·  Prev: ' + fmt(prevFetchedAt);
+  document.getElementById('fetch-time').textContent = timeText;
 
   const source = localStorage.getItem('weather_source') || '';
   const badge = document.getElementById('source-badge');
