@@ -320,6 +320,7 @@
     .city-section.open .city-section-chevron { transform: rotate(90deg); }
     .city-section-body { display: none; }
     .city-section.open .city-section-body { display: block; }
+    /* Summary always visible — sits between header and collapsible body */
     .city-summary {
       font-size: 13px; color: var(--text-muted); line-height: 1.55;
       padding: 0 14px 10px; margin: 0;
@@ -1184,9 +1185,23 @@ function cityGuideHTML() {
     const info = CITY_INFO[i];
     const deep = CITY_DEEPDIVE[i];
 
-    // Things to do items
-    const thingsBody = `<p class="city-summary">${info.vacation}</p>` +
-      deep.things.map(t => `
+    // Helper: build Google Maps URLs from routePoints array
+    function routeUrls(r) {
+      const pts = r.routePoints;
+      const origin = encodeURIComponent(pts[0]);
+      const dest   = encodeURIComponent(pts[pts.length - 1]);
+      const wps    = pts.slice(1, -1);
+      const waypointsParam = wps.length
+        ? `&waypoints=${wps.map(encodeURIComponent).join('|')}` : '';
+      const openUrl = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${dest}${waypointsParam}&travelmode=bicycling`;
+      // Classic embed (no API key needed): daddr uses "to:" chaining
+      const allAfterFirst = pts.slice(1).map(encodeURIComponent).join('+to:');
+      const embedUrl = `https://maps.google.com/maps?saddr=${origin}&daddr=${allAfterFirst}&dirflg=b&output=embed`;
+      return { openUrl, embedUrl };
+    }
+
+    // Things to do — deep dive items only (summary shown outside)
+    const thingsDeep = deep.things.map(t => `
         <div class="dd-item">
           <span class="dd-icon">${t.icon}</span>
           <div>
@@ -1195,11 +1210,9 @@ function cityGuideHTML() {
           </div>
         </div>`).join('');
 
-    // Cycling route items
-    const routesBody = `<p class="city-summary">${info.cycling}</p>` +
-      deep.routes.map(r => {
-        const mapsUrl = `https://www.google.com/maps/search/${encodeURIComponent(r.name + ', ' + loc.name)}`;
-        const osmSrc  = `https://www.openstreetmap.org/export/embed.html?bbox=${r.bbox.join(',')}&layer=cyclemap`;
+    // Cycling routes — deep dive items only (summary shown outside)
+    const routesDeep = deep.routes.map(r => {
+        const { openUrl, embedUrl } = routeUrls(r);
         return `
         <div class="route-item">
           <div class="route-top">
@@ -1211,8 +1224,8 @@ function cityGuideHTML() {
           </div>
           <div class="route-meta">${r.km} km · ${r.elev} m elevation</div>
           <div class="route-desc">${r.desc}</div>
-          <iframe class="route-map" data-src="${osmSrc}" loading="lazy" frameborder="0" allowfullscreen></iframe>
-          <a class="route-map-btn" href="${mapsUrl}" target="_blank" rel="noopener">📍 Open in Google Maps</a>
+          <iframe class="route-map" data-src="${embedUrl}" frameborder="0" allowfullscreen></iframe>
+          <a class="route-map-btn" href="${openUrl}" target="_blank" rel="noopener">📍 Open in Google Maps</a>
         </div>`;
       }).join('');
 
@@ -1226,14 +1239,16 @@ function cityGuideHTML() {
           <span>🏖 Things to do</span>
           <span class="city-section-chevron">›</span>
         </div>
-        <div class="city-section-body">${thingsBody}</div>
+        <p class="city-summary">${info.vacation}</p>
+        <div class="city-section-body">${thingsDeep}</div>
       </div>
       <div class="city-section${cyclingOpen}" id="section-${i}-cycling">
         <div class="city-section-header" onclick="toggleCitySection(${i}, 'cycling')">
           <span>🚴 Cycling routes</span>
           <span class="city-section-chevron">›</span>
         </div>
-        <div class="city-section-body">${routesBody}</div>
+        <p class="city-summary">${info.cycling}</p>
+        <div class="city-section-body">${routesDeep}</div>
       </div>
     </div>`;
   }).join('');
@@ -1254,11 +1269,11 @@ const CITY_DEEPDIVE = [
       { icon:'🏰', title:'Hofburg Palace courtyard', desc:'Free to enter, the baroque imperial courtyard is unhurried and beautiful — a perfect slow-afternoon wander before dinner at one of the Altstadt trattorias nearby.' },
     ],
     routes: [
-      { name:'Inn Valley flat loop to Hall & Schwaz', km:50, elev:150, diff:'easy', scenic:6, bbox:[11.30,47.25,11.75,47.38], desc:'Follow the flat Inn cycle path east through market towns; return via the same path or a quiet riverside road. Perfect knee-friendly warm-up day.' },
-      { name:'Seefeld Plateau climb', km:55, elev:900, diff:'challenging', scenic:9, bbox:[11.10,47.20,11.45,47.40], desc:'Innsbruck → Zirl → Seefeld — a sustained alpine climb to the plateau with sweeping views; rewarded with coffee at 1,200 m and a fast descent back.' },
-      { name:'Rum–Volders circuit', km:45, elev:600, diff:'moderate', scenic:7, bbox:[11.35,47.22,11.65,47.32], desc:'A mix of flat Inn valley and rolling vineyard hills east of the city; quiet roads, little traffic, and good views back toward the Nordkette.' },
-      { name:'Brenner foothills to Ellbögen', km:40, elev:700, diff:'challenging', scenic:7, bbox:[11.30,47.12,11.55,47.32], desc:'A classic local training loop heading south toward the Brenner Pass through Patsch and Ellbögen; steep but short, with a rewarding descent.' },
-      { name:'Hall in Tirol & Absam easy loop', km:42, elev:200, diff:'easy', scenic:6, bbox:[11.35,47.24,11.65,47.32], desc:'Innsbruck → Hall in Tirol → Absam via the Inn cycle path; almost completely flat, ideal for recovery or mixed-ability riding.' },
+      { name:'Inn Valley flat loop to Hall & Schwaz', km:50, elev:150, diff:'easy', scenic:6, routePoints:['Innsbruck, Austria','Hall in Tirol, Austria','Schwaz, Austria','Innsbruck, Austria'], desc:'Follow the flat Inn cycle path east through market towns; return via the same path or a quiet riverside road. Perfect knee-friendly warm-up day.' },
+      { name:'Seefeld Plateau climb', km:55, elev:900, diff:'challenging', scenic:9, routePoints:['Innsbruck, Austria','Zirl, Austria','Seefeld in Tirol, Austria','Innsbruck, Austria'], desc:'Innsbruck → Zirl → Seefeld — a sustained alpine climb to the plateau with sweeping views; rewarded with coffee at 1,200 m and a fast descent back.' },
+      { name:'Rum–Volders circuit', km:45, elev:600, diff:'moderate', scenic:7, routePoints:['Innsbruck, Austria','Rum, Austria','Volders, Austria','Innsbruck, Austria'], desc:'A mix of flat Inn valley and rolling vineyard hills east of the city; quiet roads, little traffic, and good views back toward the Nordkette.' },
+      { name:'Brenner foothills to Ellbögen', km:40, elev:700, diff:'challenging', scenic:7, routePoints:['Innsbruck, Austria','Patsch, Austria','Ellbögen, Austria','Innsbruck, Austria'], desc:'A classic local training loop heading south toward the Brenner Pass through Patsch and Ellbögen; steep but short, with a rewarding descent.' },
+      { name:'Hall in Tirol & Absam easy loop', km:42, elev:200, diff:'easy', scenic:6, routePoints:['Innsbruck, Austria','Hall in Tirol, Austria','Absam, Austria','Innsbruck, Austria'], desc:'Innsbruck → Hall in Tirol → Absam via the Inn cycle path; almost completely flat, ideal for recovery or mixed-ability riding.' },
     ],
   },
   // 1 — Achensee
@@ -1271,11 +1286,11 @@ const CITY_DEEPDIVE = [
       { icon:'🌅', title:'Eastern shore sunset walk', desc:'The lakeside path from Buchau to Achenkirch has sun loungers and the Rofan peaks turning gold at dusk — the most peaceful hour on the lake.' },
     ],
     routes: [
-      { name:'Inn Valley to Achensee via Achenpass', km:42, elev:800, diff:'challenging', scenic:9, bbox:[11.60,47.35,11.82,47.50], desc:'Climb from Jenbach in the valley up to the lake via the Achenpass; tough, rewarding, and the lake arrival at the top feels well-earned.' },
-      { name:'Lake loop with Rofan foothills', km:38, elev:500, diff:'moderate', scenic:9, bbox:[11.62,47.38,11.82,47.52], desc:'Maurach → Pertisau → Achenkirch and back via the scenic eastern shore — manageable climbing with beautiful lake views throughout.' },
-      { name:'Achensee to Schwaz valley loop', km:60, elev:700, diff:'moderate', scenic:8, bbox:[11.60,47.36,11.82,47.52], desc:'Descend to Jenbach then cycle the flat Inn Valley to Schwaz and back; mixes a great descent with easy valley riding.' },
-      { name:'Karwendel foothills — Falzthurn valley', km:45, elev:600, diff:'moderate', scenic:9, bbox:[11.50,47.35,11.82,47.55], desc:'From Pertisau into the quiet Falzthurn side valley; few tourists, good tarmac, and dramatic limestone walls closing in around you.' },
-      { name:'Maurach–Wiesing–Rattenberg flat loop', km:55, elev:300, diff:'easy', scenic:7, bbox:[11.65,47.42,11.90,47.72], desc:'Down to the Inn Valley via Wiesing and along the flat valley road to Rattenberg with its medieval castle; excellent knee-friendly option.' },
+      { name:'Inn Valley to Achensee via Achenpass', km:42, elev:800, diff:'challenging', scenic:9, routePoints:['Jenbach, Austria','Achenpass, Austria','Pertisau, Austria'], desc:'Climb from Jenbach in the valley up to the lake via the Achenpass; tough, rewarding, and the lake arrival at the top feels well-earned.' },
+      { name:'Lake loop with Rofan foothills', km:38, elev:500, diff:'moderate', scenic:9, routePoints:['Maurach, Austria','Pertisau, Austria','Achenkirch, Austria','Maurach, Austria'], desc:'Maurach → Pertisau → Achenkirch and back via the scenic eastern shore — manageable climbing with beautiful lake views throughout.' },
+      { name:'Achensee to Schwaz valley loop', km:60, elev:700, diff:'moderate', scenic:8, routePoints:['Pertisau, Austria','Jenbach, Austria','Schwaz, Austria','Jenbach, Austria','Pertisau, Austria'], desc:'Descend to Jenbach then cycle the flat Inn Valley to Schwaz and back; mixes a great descent with easy valley riding.' },
+      { name:'Karwendel foothills — Falzthurn valley', km:45, elev:600, diff:'moderate', scenic:9, routePoints:['Pertisau, Austria','Hinterriß, Austria','Pertisau, Austria'], desc:'From Pertisau into the quiet Falzthurn side valley; few tourists, good tarmac, and dramatic limestone walls closing in around you.' },
+      { name:'Maurach–Wiesing–Rattenberg flat loop', km:55, elev:300, diff:'easy', scenic:7, routePoints:['Maurach, Austria','Wiesing, Austria','Rattenberg, Austria','Maurach, Austria'], desc:'Down to the Inn Valley via Wiesing and along the flat valley road to Rattenberg with its medieval castle; excellent knee-friendly option.' },
     ],
   },
   // 2 — Bolzano
@@ -1288,11 +1303,11 @@ const CITY_DEEPDIVE = [
       { icon:'🚡', title:'Renon cable car to the plateau', desc:'The Ritten/Renon cable car reaches the plateau in 12 minutes; up top you can walk between the famous earth pyramids with full Dolomite panoramas behind you.' },
     ],
     routes: [
-      { name:'Adige Valley to Merano and back', km:60, elev:100, diff:'easy', scenic:8, bbox:[11.08,46.48,11.42,46.72], desc:'The flat Etschtal cycle path is paved like a motorway and runs arrow-straight through orchards and vineyards to Merano. The definitive knee-friendly day.' },
-      { name:'Alto Adige Wine Road & Caldaro lake', km:45, elev:400, diff:'moderate', scenic:9, bbox:[11.12,46.30,11.45,46.58], desc:'Loop through the vineyard-covered hills south of Bolzano, swim in the warm Caldaro lake at the midpoint, and return past wine estates.' },
-      { name:'Adige Valley south to Salorno', km:65, elev:150, diff:'easy', scenic:8, bbox:[11.05,46.00,11.42,46.55], desc:'Follow the flat cycle path through the apple orchards and Unterland vineyards south towards the narrow Salorno gorge and back — very easy riding.' },
-      { name:'Sarentino valley climb', km:50, elev:800, diff:'challenging', scenic:8, bbox:[11.22,46.48,11.45,46.70], desc:'Head north into the quiet Sarntal on smooth mountain roads; a classic South Tyrolean climb through alpine meadows with zero tourist traffic.' },
-      { name:'Überetsch hills vineyard loop', km:55, elev:550, diff:'moderate', scenic:9, bbox:[11.12,46.32,11.45,46.56], desc:'Rolling roads through the wine villages of Appiano and Caldaro south of the city; excellent asphalt, Dolomite views, and multiple wine stops.' },
+      { name:'Adige Valley to Merano and back', km:60, elev:100, diff:'easy', scenic:8, routePoints:['Bolzano, Italy','Lana, Italy','Merano, Italy','Lana, Italy','Bolzano, Italy'], desc:'The flat Etschtal cycle path is paved like a motorway and runs arrow-straight through orchards and vineyards to Merano. The definitive knee-friendly day.' },
+      { name:'Alto Adige Wine Road & Caldaro lake', km:45, elev:400, diff:'moderate', scenic:9, routePoints:['Bolzano, Italy','Caldaro sulla Strada del Vino, Italy','Appiano sulla Strada del Vino, Italy','Bolzano, Italy'], desc:'Loop through the vineyard-covered hills south of Bolzano, swim in the warm Caldaro lake at the midpoint, and return past wine estates.' },
+      { name:'Adige Valley south to Salorno', km:65, elev:150, diff:'easy', scenic:8, routePoints:['Bolzano, Italy','Egna, Italy','Salorno, Italy','Egna, Italy','Bolzano, Italy'], desc:'Follow the flat cycle path through the apple orchards and Unterland vineyards south towards the narrow Salorno gorge and back — very easy riding.' },
+      { name:'Sarentino valley climb', km:50, elev:800, diff:'challenging', scenic:8, routePoints:['Bolzano, Italy','Sarentino, Italy','Bolzano, Italy'], desc:'Head north into the quiet Sarntal on smooth mountain roads; a classic South Tyrolean climb through alpine meadows with zero tourist traffic.' },
+      { name:'Überetsch hills vineyard loop', km:55, elev:550, diff:'moderate', scenic:9, routePoints:['Bolzano, Italy','Appiano sulla Strada del Vino, Italy','Caldaro sulla Strada del Vino, Italy','Bolzano, Italy'], desc:'Rolling roads through the wine villages of Appiano and Caldaro south of the city; excellent asphalt, Dolomite views, and multiple wine stops.' },
     ],
   },
   // 3 — Riva del Garda
@@ -1305,11 +1320,11 @@ const CITY_DEEPDIVE = [
       { icon:'🪨', title:'Ponale cliff path', desc:'The old military road carved into the cliff above the lake; even just the first kilometre on foot gives spectacular, vertiginous views over the northern lake.' },
     ],
     routes: [
-      { name:'Garda Bike south to Malcesine', km:43, elev:300, diff:'moderate', scenic:9, bbox:[10.72,45.75,10.95,45.92], desc:'The classic lakeside route along the Gardesana road to Malcesine; some tunnels, dramatic cliff sections, and the return by ferry is a popular option.' },
-      { name:'Sarca river valley loop via Arco', km:46, elev:350, diff:'easy', scenic:8, bbox:[10.78,45.85,11.02,46.05], desc:'Flat cycle path alongside the Sarca river past olive groves, the dramatic Arco castle, and into the Marocche boulder field — beautiful and nearly car-free.' },
-      { name:'Ledro Valley road climb', km:55, elev:600, diff:'challenging', scenic:10, bbox:[10.62,45.82,10.95,45.98], desc:'Climb the winding mountain road to the beautiful Ledro lake at 655 m; the descent back to Riva is fast and the lake reward at the top is worth every metre.' },
-      { name:'Limone sul Garda return', km:55, elev:400, diff:'moderate', scenic:9, bbox:[10.72,45.72,10.92,45.95], desc:'North along the cliff-hugging Gardesana road to Limone — one of the lake\'s most scenic villages, with a famous lemon grove and excellent lakefront lunch spots.' },
-      { name:'Tenno lake & Fiavè plateau', km:60, elev:700, diff:'challenging', scenic:9, bbox:[10.72,45.82,11.02,46.10], desc:'Climb to the hidden turquoise Tenno lake and continue to the Fiavè plateau; a demanding but stunning route that almost nobody else does.' },
+      { name:'Garda Bike south to Malcesine', km:43, elev:300, diff:'moderate', scenic:9, routePoints:['Riva del Garda, Italy','Torbole, Italy','Malcesine, Italy'], desc:'The classic lakeside route along the Gardesana road to Malcesine; some tunnels, dramatic cliff sections, and the return by ferry is a popular option.' },
+      { name:'Sarca river valley loop via Arco', km:46, elev:350, diff:'easy', scenic:8, routePoints:['Riva del Garda, Italy','Arco, Italy','Dro, Italy','Riva del Garda, Italy'], desc:'Flat cycle path alongside the Sarca river past olive groves, the dramatic Arco castle, and into the Marocche boulder field — beautiful and nearly car-free.' },
+      { name:'Ledro Valley road climb', km:55, elev:600, diff:'challenging', scenic:10, routePoints:['Riva del Garda, Italy','Ledro, Italy','Riva del Garda, Italy'], desc:'Climb the winding mountain road to the beautiful Ledro lake at 655 m; the descent back to Riva is fast and the lake reward at the top is worth every metre.' },
+      { name:'Limone sul Garda return', km:55, elev:400, diff:'moderate', scenic:9, routePoints:['Riva del Garda, Italy','Limone sul Garda, Italy','Riva del Garda, Italy'], desc:'North along the cliff-hugging Gardesana road to Limone — one of the lake\'s most scenic villages, with a famous lemon grove and excellent lakefront lunch spots.' },
+      { name:'Tenno lake & Fiavè plateau', km:60, elev:700, diff:'challenging', scenic:9, routePoints:['Riva del Garda, Italy','Tenno, Italy','Fiavè, Italy','Riva del Garda, Italy'], desc:'Climb to the hidden turquoise Tenno lake and continue to the Fiavè plateau; a demanding but stunning route that almost nobody else does.' },
     ],
   },
   // 4 — Malcesine
@@ -1322,11 +1337,11 @@ const CITY_DEEPDIVE = [
       { icon:'🫒', title:'Parco San Vigilo (3 km south)', desc:'A private olive grove park with a pool, sunbeds, and lagoon access for €15; unhurried, beautiful, and almost entirely unknown to day-trippers.' },
     ],
     routes: [
-      { name:'Gardesana south to Bardolino', km:50, elev:350, diff:'moderate', scenic:9, bbox:[10.62,45.45,10.88,45.80], desc:'The classic eastern shore run south; the road widens after Brenzone and the views across the lake to the Brescian hills are beautiful all the way.' },
-      { name:'Lake Tenno loop via Nago and Arco', km:60, elev:700, diff:'challenging', scenic:9, bbox:[10.72,45.72,11.02,45.95], desc:'North to Torbole, up to Arco, and over the ridge to the hidden Tenno lake before descending via Riva; a demanding and spectacular day.' },
-      { name:'Malcesine to Garda town and back', km:65, elev:400, diff:'moderate', scenic:9, bbox:[10.62,45.52,10.88,45.82], desc:'The road to the southern headland at Garda is one of the lake\'s best stretches; the town itself is elegant with a great lunch piazza.' },
-      { name:'Monte Baldo lower slopes — San Zeno', km:45, elev:750, diff:'challenging', scenic:9, bbox:[10.72,45.65,10.98,45.82], desc:'Climb into the olive-terraced hills above Malcesine to San Zeno di Montagna; tough, quiet roads and panoramic Dolomite views at the top.' },
-      { name:'Malcesine to Riva northbound', km:43, elev:300, diff:'moderate', scenic:8, bbox:[10.75,45.72,10.95,45.92], desc:'Going north the Gardesana is more dramatic and less busy; the Campione road tunnel is carved through the cliff face and emerges over the open lake.' },
+      { name:'Gardesana south to Bardolino', km:50, elev:350, diff:'moderate', scenic:9, routePoints:['Malcesine, Italy','Brenzone sul Garda, Italy','Bardolino, Italy','Malcesine, Italy'], desc:'The classic eastern shore run south; the road widens after Brenzone and the views across the lake to the Brescian hills are beautiful all the way.' },
+      { name:'Lake Tenno loop via Nago and Arco', km:60, elev:700, diff:'challenging', scenic:9, routePoints:['Malcesine, Italy','Torbole, Italy','Arco, Italy','Tenno, Italy','Malcesine, Italy'], desc:'North to Torbole, up to Arco, and over the ridge to the hidden Tenno lake before descending via Riva; a demanding and spectacular day.' },
+      { name:'Malcesine to Garda town and back', km:65, elev:400, diff:'moderate', scenic:9, routePoints:['Malcesine, Italy','Bardolino, Italy','Garda, Italy','Malcesine, Italy'], desc:'The road to the southern headland at Garda is one of the lake\'s best stretches; the town itself is elegant with a great lunch piazza.' },
+      { name:'Monte Baldo lower slopes — San Zeno', km:45, elev:750, diff:'challenging', scenic:9, routePoints:['Malcesine, Italy','San Zeno di Montagna, Italy','Malcesine, Italy'], desc:'Climb into the olive-terraced hills above Malcesine to San Zeno di Montagna; tough, quiet roads and panoramic Dolomite views at the top.' },
+      { name:'Malcesine to Riva northbound', km:43, elev:300, diff:'moderate', scenic:8, routePoints:['Malcesine, Italy','Torbole, Italy','Riva del Garda, Italy'], desc:'Going north the Gardesana is more dramatic and less busy; the Campione road tunnel is carved through the cliff face and emerges over the open lake.' },
     ],
   },
   // 5 — Peschiera del Garda
@@ -1339,11 +1354,11 @@ const CITY_DEEPDIVE = [
       { icon:'🛥', title:'Sunset Prosecco boat cruise', desc:'Several operators run evening lake cruises from the harbour; the Alps turning pink over the water while sipping Prosecco is Peschiera\'s perfect closing scene.' },
     ],
     routes: [
-      { name:'Mincio cycle path to Mantova', km:43, elev:80, diff:'easy', scenic:9, bbox:[10.60,45.10,10.88,45.48], desc:'Italy\'s most popular flat cycle path follows the Mincio river through waterlily-covered bends and medieval villages to the Renaissance city of Mantova. Perfect for knees.' },
-      { name:'Mincio–Garda ring via Borghetto', km:61, elev:200, diff:'easy', scenic:8, bbox:[10.58,45.28,10.85,45.52], desc:'The gentlest loop in the area: Valeggio sul Mincio, the watermills of Borghetto, and back along the lake road through olive groves and moraine hills.' },
-      { name:'Garda south shore to Sirmione', km:50, elev:150, diff:'easy', scenic:8, bbox:[10.52,45.40,10.75,45.52], desc:'Flat lakeside road to the Roman ruins on the Sirmione peninsula; the dramatic position on the lake and the Roman baths make it a natural lunch stop.' },
-      { name:'Soave castle and wine country', km:65, elev:400, diff:'moderate', scenic:7, bbox:[10.58,45.28,11.35,45.52], desc:'East into the Veneto hills through the white Soave DOC vineyards; the medieval Soave castle is a perfect halfway stop with tasting at the co-operative winery.' },
-      { name:'Moraine hills circuit via Monzambano', km:55, elev:350, diff:'moderate', scenic:7, bbox:[10.58,45.28,10.88,45.52], desc:'The glacial moraine landscape east of the lake; quiet roads with good tarmac, excellent views back to the water, and almost no other cyclists.' },
+      { name:'Mincio cycle path to Mantova', km:43, elev:80, diff:'easy', scenic:9, routePoints:['Peschiera del Garda, Italy','Valeggio sul Mincio, Italy','Goito, Italy','Mantova, Italy'], desc:'Italy\'s most popular flat cycle path follows the Mincio river through waterlily-covered bends and medieval villages to the Renaissance city of Mantova. Perfect for knees.' },
+      { name:'Mincio–Garda ring via Borghetto', km:61, elev:200, diff:'easy', scenic:8, routePoints:['Peschiera del Garda, Italy','Valeggio sul Mincio, Italy','Borghetto sul Mincio, Italy','Peschiera del Garda, Italy'], desc:'The gentlest loop in the area: Valeggio sul Mincio, the watermills of Borghetto, and back along the lake road through olive groves and moraine hills.' },
+      { name:'Garda south shore to Sirmione', km:50, elev:150, diff:'easy', scenic:8, routePoints:['Peschiera del Garda, Italy','Desenzano del Garda, Italy','Sirmione, Italy','Peschiera del Garda, Italy'], desc:'Flat lakeside road to the Roman ruins on the Sirmione peninsula; the dramatic position on the lake and the Roman baths make it a natural lunch stop.' },
+      { name:'Soave castle and wine country', km:65, elev:400, diff:'moderate', scenic:7, routePoints:['Peschiera del Garda, Italy','Villafranca di Verona, Italy','Soave, Italy','Peschiera del Garda, Italy'], desc:'East into the Veneto hills through the white Soave DOC vineyards; the medieval Soave castle is a perfect halfway stop with tasting at the co-operative winery.' },
+      { name:'Moraine hills circuit via Monzambano', km:55, elev:350, diff:'moderate', scenic:7, routePoints:['Peschiera del Garda, Italy','Monzambano, Italy','Valeggio sul Mincio, Italy','Peschiera del Garda, Italy'], desc:'The glacial moraine landscape east of the lake; quiet roads with good tarmac, excellent views back to the water, and almost no other cyclists.' },
     ],
   },
   // 6 — Verona
@@ -1356,11 +1371,11 @@ const CITY_DEEPDIVE = [
       { icon:'🍝', title:'Dinner at Osteria al Duca or Al Pompiere', desc:'Two of Verona\'s most atmospheric old trattorias; order the risotto all\'Amarone and the horse-meat brasato — Veronese classics you won\'t find elsewhere.' },
     ],
     routes: [
-      { name:'Valpolicella wine circuit', km:55, elev:600, diff:'moderate', scenic:9, bbox:[10.78,45.43,11.05,45.62], desc:'Roll through Fumane, Marano, and Sant\'Ambrogio — the heart of Amarone country; vineyards, wine estates, and hilltop viewpoints all the way.' },
-      { name:'Adige Valley to Soave castle', km:60, elev:500, diff:'moderate', scenic:7, bbox:[10.88,45.35,11.32,45.55], desc:'East into the rolling hills through white wine country to the medieval Soave castle; the surrounding DOC vineyards are beautiful in morning light.' },
-      { name:'Adige cycle path to Borghetto & Mincio', km:50, elev:150, diff:'easy', scenic:7, bbox:[10.65,45.32,10.98,45.50], desc:'Mostly flat; follows the Adige path north then cuts west to the watermills of Borghetto sul Mincio — a lovely, easy day with a great lunch stop.' },
-      { name:'Soave foothills and Lessini valleys', km:45, elev:350, diff:'moderate', scenic:7, bbox:[10.88,45.35,11.28,45.55], desc:'Gentler rolling hills east of the city through Caldiero and the Lessini foothills; good tarmac and the vineyards are picture-perfect on clear mornings.' },
-      { name:'Mincio flat ride to Mantova (one way)', km:65, elev:100, diff:'easy', scenic:8, bbox:[10.62,45.12,10.98,45.48], desc:'Verona → Goito → Mantova entirely flat; ends in one of Italy\'s finest Renaissance cities for lunch, then take the train back to Verona.' },
+      { name:'Valpolicella wine circuit', km:55, elev:600, diff:'moderate', scenic:9, routePoints:['Verona, Italy','Fumane, Italy','Marano di Valpolicella, Italy','Sant\'Ambrogio di Valpolicella, Italy','Verona, Italy'], desc:'Roll through Fumane, Marano, and Sant\'Ambrogio — the heart of Amarone country; vineyards, wine estates, and hilltop viewpoints all the way.' },
+      { name:'Adige Valley to Soave castle', km:60, elev:500, diff:'moderate', scenic:7, routePoints:['Verona, Italy','San Martino Buon Albergo, Italy','Soave, Italy','Verona, Italy'], desc:'East into the rolling hills through white wine country to the medieval Soave castle; the surrounding DOC vineyards are beautiful in morning light.' },
+      { name:'Adige cycle path to Borghetto & Mincio', km:50, elev:150, diff:'easy', scenic:7, routePoints:['Verona, Italy','Valeggio sul Mincio, Italy','Borghetto sul Mincio, Italy','Verona, Italy'], desc:'Mostly flat; follows the Adige path north then cuts west to the watermills of Borghetto sul Mincio — a lovely, easy day with a great lunch stop.' },
+      { name:'Soave foothills and Lessini valleys', km:45, elev:350, diff:'moderate', scenic:7, routePoints:['Verona, Italy','Caldiero, Italy','Soave, Italy','Verona, Italy'], desc:'Gentler rolling hills east of the city through Caldiero and the Lessini foothills; good tarmac and the vineyards are picture-perfect on clear mornings.' },
+      { name:'Mincio flat ride to Mantova (one way)', km:65, elev:100, diff:'easy', scenic:8, routePoints:['Verona, Italy','Goito, Italy','Mantova, Italy'], desc:'Verona → Goito → Mantova entirely flat; ends in one of Italy\'s finest Renaissance cities for lunch, then take the train back to Verona.' },
     ],
   },
   // 7 — Venice
@@ -1373,11 +1388,11 @@ const CITY_DEEPDIVE = [
       { icon:'🚶', title:'Cannaregio fondamenta evening stroll', desc:'The canal-side stretch in northern Cannaregio is local, unhurried, and full of good wine bars; sit outside with a Spritz Select and watch gondolas and delivery boats.' },
     ],
     routes: [
-      { name:'Riviera del Brenta from Padova', km:45, elev:50, diff:'easy', scenic:9, bbox:[11.82,45.36,12.36,45.50], desc:'Train to Padova, then cycle the canal towpath past magnificent Palladian villas to Fusina, then ferry to Venice. Flat, shaded, and one of Italy\'s most beautiful rides.' },
-      { name:'Venice Lido to Chioggia island loop', km:55, elev:20, diff:'easy', scenic:10, bbox:[12.18,45.18,12.45,45.48], desc:'Ferry to the Lido, cycle south along the narrow barrier islands with open Adriatic on one side and lagoon on the other; ferry back from Chioggia. Uniquely flat and scenic.' },
-      { name:'Treviso and Sile river path', km:65, elev:40, diff:'easy', scenic:7, bbox:[12.18,45.50,12.68,45.70], desc:'Train to Treviso, cycle the leafy Sile river cycle path towards Jesolo; completely flat, quiet, and through the fringe of prosecco country.' },
-      { name:'Padova to Este via Colli Euganei', km:60, elev:300, diff:'moderate', scenic:8, bbox:[11.60,45.18,11.95,45.48], desc:'The volcanic Euganean Hills provide the only real climbs near Venice; the spa town of Abano and the medieval Este castle are natural stops.' },
-      { name:'Mestre to Dolo Brenta short loop', km:50, elev:30, diff:'easy', scenic:6, bbox:[12.00,45.38,12.32,45.55], desc:'Mainland Mestre → Dolo → Stra along the Brenta canal; a shorter alternative to the full Brenta route, flat and shaded, leaving the afternoon free for Venice.' },
+      { name:'Riviera del Brenta from Padova', km:45, elev:50, diff:'easy', scenic:9, routePoints:['Padova, Italy','Stra, Italy','Dolo, Italy','Fusina, Italy','Venice, Italy'], desc:'Train to Padova, then cycle the canal towpath past magnificent Palladian villas to Fusina, then ferry to Venice. Flat, shaded, and one of Italy\'s most beautiful rides.' },
+      { name:'Venice Lido to Chioggia island loop', km:55, elev:20, diff:'easy', scenic:10, routePoints:['Venezia Lido, Italy','Alberoni, Italy','Chioggia, Italy'], desc:'Ferry to the Lido, cycle south along the narrow barrier islands with open Adriatic on one side and lagoon on the other; ferry back from Chioggia. Uniquely flat and scenic.' },
+      { name:'Treviso and Sile river path', km:65, elev:40, diff:'easy', scenic:7, routePoints:['Treviso, Italy','Casier, Italy','Casale sul Sile, Italy','Jesolo, Italy'], desc:'Train to Treviso, cycle the leafy Sile river cycle path towards Jesolo; completely flat, quiet, and through the fringe of prosecco country.' },
+      { name:'Padova to Este via Colli Euganei', km:60, elev:300, diff:'moderate', scenic:8, routePoints:['Padova, Italy','Abano Terme, Italy','Este, Italy'], desc:'The volcanic Euganean Hills provide the only real climbs near Venice; the spa town of Abano and the medieval Este castle are natural stops.' },
+      { name:'Mestre to Dolo Brenta short loop', km:50, elev:30, diff:'easy', scenic:6, routePoints:['Mestre, Italy','Dolo, Italy','Stra, Italy','Mestre, Italy'], desc:'Mainland Mestre → Dolo → Stra along the Brenta canal; a shorter alternative to the full Brenta route, flat and shaded, leaving the afternoon free for Venice.' },
     ],
   },
   // 8 — Bologna
@@ -1390,11 +1405,11 @@ const CITY_DEEPDIVE = [
       { icon:'🚶', title:'Portico walk to San Luca Basilica', desc:'The world\'s longest portico (3.8 km, 666 arches) climbs to the hilltop basilica; a slow, shaded ascent with coffee stops and a sweeping city panorama at the top.' },
     ],
     routes: [
-      { name:'Ciclovia del Sole south to Pianoro', km:45, elev:450, diff:'moderate', scenic:7, bbox:[11.22,44.32,11.45,44.55], desc:'The Eurovelo 7 climate route climbs gently into the Apennine foothills through oak forests on quiet roads; a beautiful introduction to the Bologna hills.' },
-      { name:'Po Valley flat ride to Ferrara', km:65, elev:60, diff:'easy', scenic:8, bbox:[11.28,44.45,11.65,44.75], desc:'Utterly flat canal-path riding through the Po plain to the magnificent Renaissance walled city of Ferrara; one of Italy\'s most satisfying flat cycling days.' },
-      { name:'Colli Bolognesi wine circuit', km:55, elev:600, diff:'moderate', scenic:8, bbox:[11.05,44.32,11.42,44.55], desc:'Roll through Monte San Pietro and Monteveglio in the Pignoletto white wine hills; vineyards, medieval abbeys, and a hilltop trattoria for lunch.' },
-      { name:'Ciclovia del Navile canal path', km:50, elev:40, diff:'easy', scenic:6, bbox:[11.30,44.48,11.55,44.65], desc:'A completely flat towpath along the historic Navile canal north of the city; green, quiet, and ideal for knee-friendly riding without hills.' },
-      { name:'Bazzano & Zola Predosa castle circuit', km:60, elev:500, diff:'moderate', scenic:7, bbox:[11.08,44.35,11.42,44.58], desc:'Medieval castle circuit through the gentle Bolognese hills; Bazzano\'s Rocca dei Bentivoglio is stunning, the asphalt is excellent, and the tourist buses never come here.' },
+      { name:'Ciclovia del Sole south to Pianoro', km:45, elev:450, diff:'moderate', scenic:7, routePoints:['Bologna, Italy','Sasso Marconi, Italy','Pianoro, Italy','Bologna, Italy'], desc:'The Eurovelo 7 climate route climbs gently into the Apennine foothills through oak forests on quiet roads; a beautiful introduction to the Bologna hills.' },
+      { name:'Po Valley flat ride to Ferrara', km:65, elev:60, diff:'easy', scenic:8, routePoints:['Bologna, Italy','Bondeno, Italy','Ferrara, Italy'], desc:'Utterly flat canal-path riding through the Po plain to the magnificent Renaissance walled city of Ferrara; one of Italy\'s most satisfying flat cycling days.' },
+      { name:'Colli Bolognesi wine circuit', km:55, elev:600, diff:'moderate', scenic:8, routePoints:['Bologna, Italy','Monte San Pietro, Italy','Monteveglio, Italy','Bologna, Italy'], desc:'Roll through Monte San Pietro and Monteveglio in the Pignoletto white wine hills; vineyards, medieval abbeys, and a hilltop trattoria for lunch.' },
+      { name:'Ciclovia del Navile canal path', km:50, elev:40, diff:'easy', scenic:6, routePoints:['Bologna, Italy','Malalbergo, Italy','Bologna, Italy'], desc:'A completely flat towpath along the historic Navile canal north of the city; green, quiet, and ideal for knee-friendly riding without hills.' },
+      { name:'Bazzano & Zola Predosa castle circuit', km:60, elev:500, diff:'moderate', scenic:7, routePoints:['Bologna, Italy','Zola Predosa, Italy','Bazzano, Italy','Bologna, Italy'], desc:'Medieval castle circuit through the gentle Bolognese hills; Bazzano\'s Rocca dei Bentivoglio is stunning, the asphalt is excellent, and the tourist buses never come here.' },
     ],
   },
   // 9 — Rimini
@@ -1407,11 +1422,11 @@ const CITY_DEEPDIVE = [
       { icon:'☀️', title:'Grand Hotel terrace Spritz', desc:'Fellini\'s childhood obsession is now a beautiful Art Deco hotel; the terrace bar at sunset, with the Adriatic turning orange behind the beach, is Rimini at its best.' },
     ],
     routes: [
-      { name:'Adriatic coast north to Cattolica', km:55, elev:80, diff:'easy', scenic:7, bbox:[12.55,43.88,12.80,44.10], desc:'The most popular local ride: dedicated cycle path along the riviera through Riccione and Misano to Cattolica; flat, sea breeze, and plenty of gelato stops.' },
-      { name:'San Marino Republic summit loop', km:60, elev:900, diff:'challenging', scenic:9, bbox:[12.35,43.85,12.75,44.08], desc:'The famous climb to the three medieval towers of San Marino; demanding but iconic, with a spectacular panorama from one of Europe\'s smallest and oldest states.' },
-      { name:'Marecchia valley to Pennabilli', km:65, elev:600, diff:'moderate', scenic:8, bbox:[12.22,43.82,12.72,44.12], desc:'Follow the Marecchia river inland through Santarcangelo and Verucchio into the Apennine hills; quiet roads, chestnut forests, and undiscovered medieval villages.' },
-      { name:'Valconca hills and Montefiore loop', km:55, elev:500, diff:'moderate', scenic:7, bbox:[12.42,43.78,12.72,44.08], desc:'A mix of flat coastal and rolling hills south of Rimini; the 15th-century fortress at Montefiore Conca is a great lunch stop with views to the Adriatic.' },
-      { name:'Flat coast south to Pesaro', km:55, elev:70, diff:'easy', scenic:7, bbox:[12.55,43.82,12.95,44.08], desc:'Completely flat, cycle path the whole way along the riviera to the elegant Renaissance city of Pesaro; return by train or ride the same path back.' },
+      { name:'Adriatic coast north to Cattolica', km:55, elev:80, diff:'easy', scenic:7, routePoints:['Rimini, Italy','Riccione, Italy','Misano Adriatico, Italy','Cattolica, Italy'], desc:'The most popular local ride: dedicated cycle path along the riviera through Riccione and Misano to Cattolica; flat, sea breeze, and plenty of gelato stops.' },
+      { name:'San Marino Republic summit loop', km:60, elev:900, diff:'challenging', scenic:9, routePoints:['Rimini, Italy','Serravalle, San Marino','San Marino, San Marino','Rimini, Italy'], desc:'The famous climb to the three medieval towers of San Marino; demanding but iconic, with a spectacular panorama from one of Europe\'s smallest and oldest states.' },
+      { name:'Marecchia valley to Pennabilli', km:65, elev:600, diff:'moderate', scenic:8, routePoints:['Rimini, Italy','Santarcangelo di Romagna, Italy','Verucchio, Italy','Pennabilli, Italy'], desc:'Follow the Marecchia river inland through Santarcangelo and Verucchio into the Apennine hills; quiet roads, chestnut forests, and undiscovered medieval villages.' },
+      { name:'Valconca hills and Montefiore loop', km:55, elev:500, diff:'moderate', scenic:7, routePoints:['Rimini, Italy','Cattolica, Italy','Montefiore Conca, Italy','Rimini, Italy'], desc:'A mix of flat coastal and rolling hills south of Rimini; the 15th-century fortress at Montefiore Conca is a great lunch stop with views to the Adriatic.' },
+      { name:'Flat coast south to Pesaro', km:55, elev:70, diff:'easy', scenic:7, routePoints:['Rimini, Italy','Cattolica, Italy','Pesaro, Italy'], desc:'Completely flat, cycle path the whole way along the riviera to the elegant Renaissance city of Pesaro; return by train or ride the same path back.' },
     ],
   },
 ];
