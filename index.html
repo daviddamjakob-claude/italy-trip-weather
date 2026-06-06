@@ -304,76 +304,63 @@
     .score-dot.score-poor  { background: #ef4444; }
     .score-dot.score-none  { background: #ccc; }
 
-    /* ── City Guide accordion ── */
-    .city-section { border-top: 1px solid var(--border); }
-    .city-section-header {
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 11px 14px; cursor: pointer; user-select: none;
-      font-size: 14px; font-weight: 600;
+    /* ── Cycling Tips tab ── */
+    .ct-tier-header {
+      display: flex; align-items: center; gap: 8px;
+      padding: 10px 14px 8px; margin: 10px 14px 0;
+      border-radius: 8px; font-size: 11px; font-weight: 800;
+      text-transform: uppercase; letter-spacing: 0.6px;
     }
-    .city-section-header:active { background: #f5f5f5; }
-    .city-section-chevron {
-      font-size: 13px; color: var(--text-muted);
-      transition: transform 0.2s;
-      display: inline-block;
-    }
-    .city-section.open .city-section-chevron { transform: rotate(90deg); }
-    .city-section-body { display: none; }
-    .city-section.open .city-section-body { display: block; }
-    /* Summary always visible — sits between header and collapsible body */
-    .city-summary {
-      font-size: 13px; color: var(--text-muted); line-height: 1.55;
-      padding: 0 14px 10px; margin: 0;
-    }
+    .ct-tier-1 { background: #0f2d2a; color: #5eead4; }
+    .ct-tier-2 { background: #14532d; color: #86efac; }
+    .ct-tier-3 { background: #451a03; color: #fcd34d; }
+    .ct-tier-4 { background: #1c1917; color: #a8a29e; }
 
-    /* ── Things to do items ── */
-    .dd-item {
-      padding: 10px 14px;
-      border-top: 1px solid var(--border);
-      display: flex; gap: 10px;
+    .ct-card {
+      margin: 8px 14px; border: 1px solid var(--border);
+      border-radius: 10px; background: #fff; overflow: hidden;
     }
-    .dd-icon { font-size: 20px; flex-shrink: 0; line-height: 1.3; }
-    .dd-title { font-size: 13px; font-weight: 600; margin-bottom: 2px; }
-    .dd-desc  { font-size: 12px; color: var(--text-muted); line-height: 1.5; }
+    .ct-card-main { padding: 12px 14px; cursor: pointer; user-select: none; }
+    .ct-card-main:active { background: #f9f9f9; }
+    .ct-name { font-size: 14px; font-weight: 700; margin-bottom: 1px; }
+    .ct-subtitle { font-size: 12px; color: var(--text-muted); margin-bottom: 8px; }
+    .ct-tags { display: flex; gap: 5px; flex-wrap: wrap; margin-bottom: 8px; }
+    .ct-tag {
+      font-size: 11px; font-weight: 600; padding: 2px 7px;
+      border-radius: 10px; white-space: nowrap;
+    }
+    .ct-tag-dist  { background: #e0f2fe; color: #0369a1; }
+    .ct-tag-elev  { background: #f0fdf4; color: #15803d; }
+    .ct-tag-flat  { background: #f0fdf4; color: #15803d; }
+    .ct-tag-type  { background: #f3f4f6; color: #374151; }
+    .ct-tag-warn  { background: #fee2e2; color: #991b1b; }
+    .ct-desc  { font-size: 13px; line-height: 1.6; color: var(--text); margin-bottom: 8px; }
+    .ct-tip   {
+      font-size: 12px; font-style: italic; line-height: 1.5;
+      color: #0369a1; border-left: 3px solid #bae6fd;
+      padding-left: 8px; margin: 0;
+    }
+    .ct-expand-hint {
+      font-size: 11px; color: var(--text-muted);
+      margin-top: 8px; display: flex; align-items: center; gap: 4px;
+    }
+    .ct-chevron { display: inline-block; transition: transform 0.2s; }
+    .ct-card.open .ct-chevron { transform: rotate(90deg); }
 
-    /* ── Cycling route items ── */
-    .route-item {
-      padding: 12px 14px;
-      border-top: 1px solid var(--border);
+    /* Expanded map section */
+    .ct-map-body { display: none; border-top: 1px solid var(--border); padding: 12px 14px; }
+    .ct-card.open .ct-map-body { display: block; }
+    .ct-map-frame {
+      width: 100%; height: 200px; border: 1px solid var(--border);
+      border-radius: 8px; margin-bottom: 8px; display: block;
     }
-    .route-top {
-      display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
-      margin-bottom: 4px;
-    }
-    .route-name  { font-size: 13px; font-weight: 600; flex: 1; }
-    .route-badges { display: flex; gap: 5px; align-items: center; flex-shrink: 0; }
-    .route-diff  {
-      font-size: 10px; font-weight: 700; padding: 2px 6px;
-      border-radius: 10px; text-transform: uppercase; white-space: nowrap;
-    }
-    .diff-easy       { background: #d1fae5; color: #065f46; }
-    .diff-moderate   { background: #fef3c7; color: #92400e; }
-    .diff-challenging{ background: #fee2e2; color: #991b1b; }
-    .route-scenic {
-      font-size: 11px; font-weight: 600; color: #7c3aed;
-      background: #f3e8ff; padding: 2px 6px; border-radius: 10px;
-      white-space: nowrap;
-    }
-    .route-meta  { font-size: 11px; color: var(--text-muted); margin-bottom: 4px; }
-    .route-desc  { font-size: 12px; color: var(--text-muted); line-height: 1.5; margin-bottom: 8px; }
-    .route-map {
-      width: 100%; height: 150px; border: 1px solid var(--border);
-      border-radius: 8px; margin-bottom: 6px;
-      display: block;
-    }
-    .route-map-btn {
+    .ct-map-btn {
       display: inline-flex; align-items: center; gap: 5px;
       font-size: 12px; font-weight: 600; color: #1a73e8;
-      background: #e8f0fe; border: none; border-radius: 8px;
-      padding: 6px 12px; cursor: pointer; text-decoration: none;
-      margin-bottom: 4px;
+      background: #e8f0fe; border-radius: 8px;
+      padding: 7px 14px; text-decoration: none;
     }
-    .route-map-btn:active { background: #d2e3fc; }
+    .ct-map-btn:active { background: #d2e3fc; }
 
     /* ── Responsive ── */
     @media (min-width: 520px) {
@@ -431,7 +418,7 @@
 <!-- Bottom tab bar -->
 <div id="tab-bar">
   <button class="tab-btn active" onclick="showTab('cityguide')" id="btn-cityguide">
-    <span class="tab-icon">🏙️</span>City Guide
+    <span class="tab-icon">🚵</span>Cycling Tips
   </button>
   <button class="tab-btn" onclick="showTab('weather')" id="btn-weather">
     <span class="tab-icon">🌤️</span>Weather Guide
@@ -1162,23 +1149,177 @@ const CITY_INFO = [
   },
 ];
 
-// Accordion state: key = "cityIdx-section" (e.g. "3-things"), value = true/false
-const openSections = {};
+// ═══════════════════════════════════════════════════════════════
+// TAB: CYCLING TIPS — data + render
+// ═══════════════════════════════════════════════════════════════
 
-function toggleCitySection(cityIdx, section) {
-  const key = `${cityIdx}-${section}`;
-  openSections[key] = !openSections[key];
-  const el = document.getElementById(`section-${cityIdx}-${section}`);
-  if (!el) return;
-  el.classList.toggle('open', !!openSections[key]);
-  // Lazy-load OSM iframes on first open
-  if (openSections[key]) {
-    el.querySelectorAll('iframe[data-src]').forEach(f => {
+const CYCLING_TIPS = [
+  {
+    tier: 1, tierLabel: 'STUNNING / EXCEPTIONAL', tierIcon: '⛰️',
+    routes: [
+      {
+        name: 'Ciclopista del Garda',
+        subtitle: 'Limone sul Garda',
+        tags: [{ text:'~30 km out-and-back', cls:'ct-tag-dist' }, { text:'<50m elevation', cls:'ct-tag-elev' }],
+        desc: 'The suspended cliff-hugging bike path anchored over the lake — rated one of Europe\'s most beautiful sections of cycling infrastructure when it opened in 2018. Flat, traffic-free, and genuinely jaw-dropping: water on one side, limestone cliffs on the other. Currently ~5 km total (out-and-back doubles that). Short, but completely unlike anything else on this trip. Combine with a lakeside lunch in Limone.',
+        tip: 'Non-negotiable. Do it early in the morning before the crowds.',
+        waypoints: ['Limone sul Garda, Brescia, Italy','Ciclopista del Garda, Limone sul Garda','Limone sul Garda, Brescia, Italy'],
+      },
+      {
+        name: 'Ponale Road',
+        subtitle: 'Riva del Garda to Valle di Ledro',
+        tags: [{ text:'~30–40 km round trip', cls:'ct-tag-dist' }, { text:'~350m elevation', cls:'ct-tag-elev' }],
+        desc: 'A 19th-century military road cut into the cliff above the northern lake, giving continuous aerial views down across Garda from a height you simply can\'t get from the shore. Not difficult — steady gradient, well-paved — and you\'re rewarded at the top with Lake Ledro, a quiet alpine lake entirely unlike Garda below. One of the finest cycling experiences in the whole region.',
+        tip: 'Best combined with the Ciclopista for a perfect Riva-based day.',
+        waypoints: ['Riva del Garda, Trento, Italy','Strada del Ponale, Riva del Garda','Lago di Ledro, Tiarno di Sotto, Italy','Riva del Garda, Trento, Italy'],
+      },
+      {
+        name: 'Venice Lagoon Islands',
+        subtitle: 'Lido to Pellestrina to Chioggia',
+        tags: [{ text:'~40–50 km with ferries', cls:'ct-tag-dist' }, { text:'Completely flat', cls:'ct-tag-flat' }, { text:'One-way', cls:'ct-tag-type' }],
+        desc: 'Totally unlike anywhere else in Italy. Take the vaporetto from Venice to Lido, cycle the length of the island (12 km, flat, car-light), then ferry across to Pellestrina — a ribbon of land sometimes just 25 metres wide, with the Adriatic one side and the lagoon the other. Fishing villages, mussel farms, Venetian fortresses, and the distant silhouette of Venice across the water. Finish in Chioggia. The scenery is surreal.',
+        tip: 'Completely within your distance limits. One of the most unique rides in Europe. Allow a full day.',
+        waypoints: ['Santa Maria Elisabetta, Lido di Venezia, Venice, Italy','Malamocco, Lido di Venezia, Venice, Italy','Alberoni Ferry Terminal, Lido di Venezia, Venice','San Pietro in Volta, Pellestrina, Venice, Italy','Pellestrina, Venice, Italy','Chioggia, Venice, Italy'],
+      },
+      {
+        name: 'Rimini — San Marino loop',
+        subtitle: '',
+        tags: [{ text:'~65–70 km loop', cls:'ct-tag-dist' }, { text:'~900–930m elevation', cls:'ct-tag-warn' }],
+        desc: 'The standout route of the Rimini area and genuinely one of the best day rides in central Italy. You climb from the coast into the Apennine foothills via the Marecchia valley, then ascend to San Marino — a medieval microstate perched on a sheer cliff face at 750m with views across the Adriatic to the horizon. The climb is real but rewarding, the descent fast, and the destination completely justifies the effort. Nothing about this route is forgettable.',
+        tip: 'The elevation is above your stated cap — factor that in honestly. But the route itself earns tier 1.',
+        waypoints: ['Rimini, Emilia-Romagna, Italy','Santarcangelo di Romagna, Rimini, Italy','Verucchio, Rimini, Italy','City of San Marino, San Marino','Rimini, Emilia-Romagna, Italy'],
+      },
+    ],
+  },
+  {
+    tier: 2, tierLabel: 'GREAT CYCLING', tierIcon: '🚴',
+    routes: [
+      {
+        name: 'Eastern Garda',
+        subtitle: 'Peschiera to Garda (Lazise, Bardolino)',
+        tags: [{ text:'~40 km one-way', cls:'ct-tag-dist' }, { text:'<50m elevation', cls:'ct-tag-elev' }, { text:'Ferry or retrace return', cls:'ct-tag-type' }],
+        desc: 'The best flat lakeside cycling on Garda. A mostly dedicated cycle path hugging the shore through Lazise (medieval Venetian customs house), Bardolino (Amarone country), and up to the Garda peninsula. Good pavement, lake views throughout, frequent stops. Return by ferry or retrace. Not as dramatic as the cliff paths but genuinely beautiful — this is the postcard version of Garda.',
+        tip: 'Perfect legs day. Pairs well with a Bardolino wine stop.',
+        waypoints: ['Peschiera del Garda, Verona, Italy','Lazise, Verona, Italy','Bardolino, Verona, Italy','Punta San Vigilio, Garda, Verona, Italy','Garda, Verona, Italy'],
+      },
+      {
+        name: 'Adige Valley',
+        subtitle: 'Bolzano to Trento (one stage south)',
+        tags: [{ text:'~65–70 km one-way', cls:'ct-tag-dist' }, { text:'~250–300m elevation', cls:'ct-tag-elev' }, { text:'Gentle downhill south', cls:'ct-tag-type' }],
+        desc: 'The Adige cycle path is flat (gentle downhill heading south), well-paved, and passes through apple orchards, vineyards, and South Tyrolean villages with a distinctly Alpine character entirely different from the lake. Bolzano itself is genuinely beautiful — Germanic architecture, excellent food market, dramatic mountain backdrop. A single stage to Trento fits your 70 km limit perfectly. Caveat: you need to get to Bolzano first (train from Verona or Rovereto).',
+        tip: 'Worth doing if you\'re willing to spend travel time to reach it. Adds real contrast and variety to the week.',
+        waypoints: ['Bolzano, South Tyrol, Italy','Caldaro sulla Strada del Vino, Bolzano, Italy','Ora, Bolzano, Italy','Salorno, Bolzano, Italy','Trento, Trentino, Italy'],
+      },
+      {
+        name: 'Brenta Riviera',
+        subtitle: 'Padua to Venice (Fusina)',
+        tags: [{ text:'~38 km one-way', cls:'ct-tag-dist' }, { text:'Completely flat', cls:'ct-tag-flat' }, { text:'Finish by vaporetto into Venice', cls:'ct-tag-type' }],
+        desc: 'Canal-side cycling along the Naviglio del Brenta through a sequence of Palladian villas — Villa Pisani, Villa Foscari (La Malcontenta), Villa Widmann — past locks and working rivers. Mostly dedicated path, entirely flat, and culturally dense. End in Fusina and catch a vaporetto into Venice for the evening. Far more interesting than cycling to Venice via the main roads.',
+        tip: 'Ideal if you want a cultural, relaxed day. The villa-hopping is genuinely special.',
+        waypoints: ['Padua, Veneto, Italy','Villa Pisani, Stra, Venice, Italy','Dolo, Venice, Italy','Villa Foscari La Malcontenta, Mira, Venice, Italy','Fusina Terminal, Mira, Venice, Italy'],
+      },
+    ],
+  },
+  {
+    tier: 3, tierLabel: 'NICE TO DO', tierIcon: '🌤️',
+    routes: [
+      {
+        name: 'Marecchia Valley',
+        subtitle: 'Rimini to Verucchio (valley loop)',
+        tags: [{ text:'~47 km loop', cls:'ct-tag-dist' }, { text:'~150–200m elevation', cls:'ct-tag-elev' }, { text:'Gentler alternative to San Marino', cls:'ct-tag-type' }],
+        desc: 'The gentler alternative to the San Marino route — same valley, stopping short of the big climb. Roman bridge, canyon scenery, the hilltop fortress of Verucchio visible above. Gravel-adjacent in some sections but manageable. The Rimini hinterland is genuinely underrated. Good as a second day if you\'ve already done San Marino and your legs need something easier.',
+        tip: 'A decent day if based in Rimini. Not a reason to go to Rimini on its own.',
+        waypoints: ['Rimini, Emilia-Romagna, Italy','Santarcangelo di Romagna, Rimini, Italy','Verucchio, Rimini, Italy','Rimini, Emilia-Romagna, Italy'],
+      },
+      {
+        name: 'Southern Garda',
+        subtitle: 'Desenzano to Sirmione and Peschiera',
+        tags: [{ text:'~36 km one-way', cls:'ct-tag-dist' }, { text:'Flat', cls:'ct-tag-flat' }, { text:'Ferry return available', cls:'ct-tag-type' }],
+        desc: 'Easy flat path along the southern shore, passing Sirmione\'s extraordinary castle jutting into the lake. The route itself is simple — mix of dedicated path and road — and the southern shore lacks the drama of the western or northern lake. But Sirmione is genuinely beautiful and ferry connections let you make a loop without retracing. More of a touring/sightseeing day than a cycling day.',
+        tip: 'Do it for Sirmione, not for the cycling itself.',
+        waypoints: ['Desenzano del Garda, Brescia, Italy','Sirmione, Brescia, Italy','Peschiera del Garda, Verona, Italy'],
+      },
+    ],
+  },
+  {
+    tier: 4, tierLabel: 'COULD SKIP', tierIcon: '✗',
+    routes: [
+      {
+        name: 'Rimini coastal cycle path',
+        subtitle: 'Beach promenade',
+        tags: [{ text:'~15–30 km', cls:'ct-tag-dist' }, { text:'Flat', cls:'ct-tag-flat' }],
+        desc: 'Flat, purpose-built path along the Adriatic beach strip. In reality: 15 km of beach umbrellas, sunbed concessions, and gelato kiosks through most of June–August. Fine for an evening roll but adds nothing to a cycling week alongside Garda and Venice. Rimini\'s value is inland, not on the coast.',
+        tip: 'Skip unless you want an ice cream ride.',
+        waypoints: ['Rimini, Emilia-Romagna, Italy','Riccione, Rimini, Italy'],
+      },
+      {
+        name: 'Full Lake Garda loop',
+        subtitle: '',
+        tags: [{ text:'~140–160 km', cls:'ct-tag-dist' }, { text:'Exceeds limits', cls:'ct-tag-warn' }],
+        desc: 'The full circumnavigation is a classic, but it\'s well outside your parameters on both distance and elevation, involves significant tunnel sections on the western shore (dark, narrow, unpleasant), and the Ciclopista del Garda gap means the northern section still requires mixing with road traffic. Better to do the best sections selectively than grind the whole thing.',
+        tip: 'Not for this trip — cherry-pick the best sections instead.',
+        waypoints: ['Riva del Garda, Trento, Italy','Limone sul Garda, Brescia, Italy','Desenzano del Garda, Brescia, Italy','Peschiera del Garda, Verona, Italy','Malcesine, Verona, Italy','Riva del Garda, Trento, Italy'],
+      },
+    ],
+  },
+];
+
+const openRoutes = {};
+
+function toggleRoute(key) {
+  openRoutes[key] = !openRoutes[key];
+  const card = document.getElementById('ct-' + key);
+  if (!card) return;
+  card.classList.toggle('open', !!openRoutes[key]);
+  if (openRoutes[key]) {
+    card.querySelectorAll('iframe[data-src]').forEach(f => {
       f.src = f.dataset.src;
       f.removeAttribute('data-src');
     });
   }
 }
+
+function buildMapsUrls(waypoints) {
+  const enc = waypoints.map(encodeURIComponent);
+  const origin = enc[0], dest = enc[enc.length - 1];
+  const wps = enc.slice(1, -1);
+  const wpParam = wps.length ? '&waypoints=' + wps.join('|') : '';
+  const openUrl = 'https://www.google.com/maps/dir/?api=1&origin=' + origin + '&destination=' + dest + wpParam + '&travelmode=bicycling';
+  const allAfterFirst = waypoints.slice(1).map(encodeURIComponent).join('+to:');
+  const embedUrl = 'https://maps.google.com/maps?saddr=' + enc[0] + '&daddr=' + allAfterFirst + '&dirflg=b&output=embed';
+  return { openUrl, embedUrl };
+}
+
+function cyclingTipsHTML() {
+  return CYCLING_TIPS.map(tier => {
+    const routesHtml = tier.routes.map((r, ri) => {
+      const key = 't' + tier.tier + 'r' + ri;
+      const { openUrl, embedUrl } = buildMapsUrls(r.waypoints);
+      const tagsHtml = r.tags.map(t => '<span class="ct-tag ' + t.cls + '">' + t.text + '</span>').join('');
+      const subtitleHtml = r.subtitle ? '<div class="ct-subtitle">' + r.subtitle + '</div>' : '';
+      const isOpen = !!openRoutes[key];
+      return '<div class="ct-card' + (isOpen ? ' open' : '') + '" id="ct-' + key + '">' +
+        '<div class="ct-card-main" onclick="toggleRoute(\'' + key + '\')">' +
+          '<div class="ct-name">' + r.name + '</div>' +
+          subtitleHtml +
+          '<div class="ct-tags">' + tagsHtml + '</div>' +
+          '<p class="ct-desc">' + r.desc + '</p>' +
+          '<p class="ct-tip">' + r.tip + '</p>' +
+          '<div class="ct-expand-hint"><span class="ct-chevron">›</span> Map &amp; directions</div>' +
+        '</div>' +
+        '<div class="ct-map-body">' +
+          '<iframe class="ct-map-frame" ' + (isOpen ? 'src' : 'data-src') + '="' + embedUrl + '" frameborder="0" allowfullscreen></iframe>' +
+          '<a class="ct-map-btn" href="' + openUrl + '" target="_blank" rel="noopener">📍 Open in Google Maps</a>' +
+        '</div>' +
+      '</div>';
+    }).join('');
+    return '<div class="ct-tier-header ct-tier-' + tier.tier + '">' + tier.tierIcon + ' TIER ' + tier.tier + ' — ' + tier.tierLabel + '</div>' + routesHtml;
+  }).join('');
+}
+
+// ── Legacy city guide (data kept, render replaced by cycling tips) ──
+const openSections = {};
+function toggleCitySection() {}
 
 function cityGuideHTML() {
   return LOCATIONS.map((loc, i) => {
@@ -1438,7 +1579,7 @@ const CITY_DEEPDIVE = [
 // ═══════════════════════════════════════════════════════════════
 
 function renderCityGuideTab() {
-  document.getElementById('cityguide-content').innerHTML = cityGuideHTML();
+  document.getElementById('cityguide-content').innerHTML = cyclingTipsHTML();
 }
 
 // ═══════════════════════════════════════════════════════════════
