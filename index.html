@@ -287,8 +287,60 @@
     .itin-row {
       padding: 7px 14px;
       border-bottom: 1px solid var(--border);
+      cursor: pointer;
     }
+    .itin-row:active { background: #f0f4ff; }
     .itin-row:last-child { border-bottom: none; }
+
+    /* ── Day detail drawer ── */
+    .dd-handle {
+      width: 36px; height: 4px; border-radius: 2px;
+      background: #d1d5db; margin: 10px auto 0;
+    }
+    .dd-header {
+      padding: 14px 16px 10px;
+      border-bottom: 1px solid var(--border);
+    }
+    .dd-title { font-size: 17px; font-weight: 700; }
+    .dd-sub   { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+    .dd-activity {
+      font-size: 13px; color: #444; background: #f5f7ff;
+      margin: 10px 16px 0; padding: 8px 12px; border-radius: 8px;
+    }
+    .dd-section-title {
+      font-size: 11px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.06em; color: var(--text-muted);
+      padding: 14px 16px 6px;
+    }
+    .dd-slots { padding: 0 10px; }
+    .dd-slot-row {
+      display: flex; align-items: center; gap: 8px;
+      padding: 8px 6px; border-radius: 8px; margin-bottom: 4px;
+    }
+    .dd-slot-row.scored { background: #f0f4ff; }
+    .dd-slot-name { width: 110px; font-size: 12px; font-weight: 600; flex-shrink: 0; }
+    .dd-slot-icon { font-size: 18px; flex-shrink: 0; }
+    .dd-slot-cond { flex: 1; font-size: 11px; color: var(--text-muted); }
+    .dd-slot-temp { font-size: 13px; font-weight: 600; white-space: nowrap; }
+    .dd-slot-rain { font-size: 11px; font-weight: 700; padding: 2px 6px; border-radius: 4px; white-space: nowrap; }
+    .dd-slot-precip { font-size: 11px; color: var(--text-muted); white-space: nowrap; }
+    .dd-score-box {
+      margin: 10px 16px 0;
+      border: 1px solid var(--border); border-radius: 10px;
+      padding: 12px 14px;
+    }
+    .dd-score-top {
+      display: flex; align-items: center; gap: 10px; margin-bottom: 8px;
+    }
+    .dd-score-big {
+      font-size: 28px; font-weight: 800;
+    }
+    .dd-score-label { font-size: 12px; color: var(--text-muted); }
+    .dd-score-breakdown { font-size: 12px; line-height: 1.6; color: #444; }
+    .dd-synthesis {
+      margin: 10px 16px 0; font-size: 13px; line-height: 1.55;
+      padding: 10px 12px; background: #f9fafb; border-radius: 8px;
+    }
     .itin-top {
       display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
     }
@@ -377,6 +429,12 @@
   </style>
 </head>
 <body>
+
+<!-- Day detail drawer -->
+<div id="day-detail-overlay" onclick="closeDayDetail()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.4);z-index:200;"></div>
+<div id="day-detail-drawer" style="display:none;position:fixed;bottom:0;left:0;right:0;max-height:85vh;overflow-y:auto;background:#fff;border-radius:16px 16px 0 0;z-index:201;padding:0 0 32px;">
+  <div id="day-detail-content"></div>
+</div>
 
 <!-- Loading overlay -->
 <div id="loading">
@@ -987,6 +1045,111 @@ const ITINERARIES = [
   },
 ];
 
+// ═══════════════════════════════════════════════════════════════
+// DAY DETAIL DRAWER
+// ═══════════════════════════════════════════════════════════════
+
+function openDayDetail(locIdx, date, slotIndices, locName, activityText) {
+  const data = getCurrentData();
+  const locData = data ? data[locIdx] : null;
+  const dayData = locData?.days.find(d => d.date === date) ?? null;
+
+  const dateLabel = formatDate(date);
+  const result = dayData ? scoreDayForActivity(dayData, slotIndices) : null;
+
+  // Slot rows
+  let slotsHTML = '';
+  if (dayData) {
+    SLOTS.forEach((slotDef, i) => {
+      const slot = dayData.slots[i];
+      if (!slot) return;
+      const isScored = slotIndices.includes(i);
+      const rCls = rainClass(slot.maxRainProb);
+      slotsHTML += `<div class="dd-slot-row${isScored ? ' scored' : ''}">
+        <span class="dd-slot-name">${isScored ? '▸ ' : ''}${slot.name}</span>
+        <span class="dd-slot-icon">${slot.icon}</span>
+        <span class="dd-slot-cond">${slot.condition}</span>
+        <span class="dd-slot-temp">${slot.maxTemp}°</span>
+        <span class="dd-slot-rain ${rCls}">${slot.maxRainProb}%</span>
+        <span class="dd-slot-precip">${slot.totalPrecip > 0 ? slot.totalPrecip + 'mm' : '—'}</span>
+      </div>`;
+    });
+  } else {
+    slotsHTML = `<p style="padding:12px 6px;color:var(--text-muted)">No weather data loaded yet.</p>`;
+  }
+
+  // Score breakdown
+  let scoreHTML = '';
+  if (result) {
+    const cls = scoreClass(result.score);
+    const coldPenalty = result.maxTemp < 17 ? (17 - result.maxTemp) * 2 : 0;
+    const rainPenalty = Math.round(result.maxRain * 0.75);
+    const precipPenalty = Math.min(100, Math.round(
+      (dayData.slots.filter((_, i) => slotIndices.includes(i)).reduce((s, sl) => s + (sl?.totalPrecip ?? 0), 0)) * 6
+    ));
+    scoreHTML = `<div class="dd-score-box">
+      <div class="dd-score-top">
+        <span class="dd-score-big itin-score-chip ${cls}">${result.score}/100</span>
+        <span class="dd-score-label">Day score for activity window</span>
+      </div>
+      <div class="dd-score-breakdown">
+        <strong>Formula:</strong> 100 − rain% × 0.75 − precip × 6 − cold penalty<br>
+        Rain penalty: −${rainPenalty} (${result.maxRain}% max rain probability)<br>
+        Precip penalty: −${precipPenalty} (accumulated mm during active slots)<br>
+        ${coldPenalty > 0 ? `Cold penalty: −${coldPenalty} (${result.maxTemp}°C, below 17°C threshold)<br>` : ''}
+        <strong>Result: ${result.score}/100</strong>
+      </div>
+    </div>`;
+  }
+
+  // Synthesis
+  let synthesis = '';
+  if (result && dayData) {
+    const sc = result.score;
+    const slots = dayData.slots.filter((_, i) => slotIndices.includes(i)).filter(Boolean);
+    const bestSlot = slots.reduce((b, s) => s.maxRainProb < b.maxRainProb ? s : b, slots[0]);
+    let mood = '';
+    if (sc >= 75) mood = `Looking great for ${locName}. `;
+    else if (sc >= 55) mood = `Decent conditions expected. `;
+    else if (sc >= 35) mood = `Mixed outlook — some rain risk. `;
+    else mood = `Challenging day weather-wise. `;
+
+    if (result.maxRain >= 60) synthesis += `${mood}Rain probability peaks at ${result.maxRain}% — pack a rain jacket. `;
+    else if (result.maxRain >= 30) synthesis += `${mood}Some shower risk (${result.maxRain}% peak) — keep an eye on the forecast. `;
+    else synthesis += `${mood}Rain probability stays low (${result.maxRain}% peak). `;
+
+    if (bestSlot) synthesis += `Best window: ${bestSlot.name} (${bestSlot.maxTemp}°, ${bestSlot.maxRainProb}% rain). `;
+    if (result.maxTemp < 17) synthesis += `Temperatures are on the cool side (${result.maxTemp}°C max) — dress in layers. `;
+    else if (result.maxTemp >= 28) synthesis += `Warm day at ${result.maxTemp}°C — stay hydrated. `;
+  } else if (!data) {
+    synthesis = 'Load weather data to see the forecast for this day.';
+  }
+
+  const content = `
+    <div class="dd-handle"></div>
+    <div class="dd-header">
+      <div class="dd-title">${locName} · ${dateLabel}</div>
+      <div class="dd-sub">Scored slots highlighted in blue</div>
+    </div>
+    <div class="dd-activity">${activityText}</div>
+    <div class="dd-section-title">Weather by time of day</div>
+    <div class="dd-slots">${slotsHTML}</div>
+    ${scoreHTML}
+    ${synthesis ? `<div class="dd-synthesis">${synthesis}</div>` : ''}
+  `;
+
+  document.getElementById('day-detail-content').innerHTML = content;
+  document.getElementById('day-detail-drawer').style.display = 'block';
+  document.getElementById('day-detail-overlay').style.display = 'block';
+  document.body.style.overflow = 'hidden';
+}
+
+function closeDayDetail() {
+  document.getElementById('day-detail-drawer').style.display = 'none';
+  document.getElementById('day-detail-overlay').style.display = 'none';
+  document.body.style.overflow = '';
+}
+
 // Score a day-at-location for cycling/activity suitability (0–100)
 function scoreDayForActivity(dayData, slotIndices) {
   if (!dayData) return null;
@@ -1052,11 +1215,15 @@ function itineraryCardHTML(itin, data, why, isPlan = false) {
     } else {
       wx = `<span class="itin-wx" style="color:var(--text-muted)">—</span>`;
     }
-    html += `<div class="itin-row">
+    const slotsJson = JSON.stringify(day.slots);
+    const actEscaped = day.activity.replace(/'/g, '&#39;');
+    const locEscaped = day.loc.replace(/'/g, '&#39;');
+    html += `<div class="itin-row" onclick="openDayDetail(${day.locIdx},'${day.date}',${slotsJson},'${locEscaped}','${actEscaped}')">
       <div class="itin-top">
         <span class="itin-date">${dateLabel}</span>
         <span class="itin-loc">${day.loc}</span>
         ${wx}
+        <span style="font-size:11px;color:var(--text-muted);margin-left:auto;">›</span>
       </div>
       <div class="itin-act">${day.activity}</div>
     </div>`;
