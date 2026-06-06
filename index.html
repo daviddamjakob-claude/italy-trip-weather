@@ -268,6 +268,14 @@
       flex-shrink: 0; font-size: 13px; font-weight: 700;
       padding: 3px 9px; border-radius: 20px;
     }
+    .itin-card-plan {
+      border: 2px solid #2a7ad4;
+    }
+    .itin-plan-badge {
+      display: block; background: #2a7ad4; color: #fff;
+      font-size: 10px; font-weight: 800; letter-spacing: 0.08em;
+      text-align: center; padding: 3px 0;
+    }
     .itin-why {
       font-size: 12px; line-height: 1.65; color: var(--text);
       padding: 10px 14px 10px; border-bottom: 1px solid var(--border);
@@ -387,14 +395,14 @@
   <span id="fetch-time"></span>
 </div>
 
-<!-- ══ TAB: City Guide ══ -->
-<div id="tab-cityguide" class="tab-panel active">
-  <div class="content-area" id="cityguide-content"></div>
+<!-- ══ TAB: Trip Guide ══ -->
+<div id="tab-weather" class="tab-panel active">
+  <div class="content-area" id="weather-content"></div>
 </div>
 
-<!-- ══ TAB: Weather Guide ══ -->
-<div id="tab-weather" class="tab-panel">
-  <div class="content-area" id="weather-content"></div>
+<!-- ══ TAB: City Guide ══ -->
+<div id="tab-cityguide" class="tab-panel">
+  <div class="content-area" id="cityguide-content"></div>
 </div>
 
 <!-- ══ TAB: By Day ══ -->
@@ -417,11 +425,11 @@
 
 <!-- Bottom tab bar -->
 <div id="tab-bar">
-  <button class="tab-btn active" onclick="showTab('cityguide')" id="btn-cityguide">
-    <span class="tab-icon">🚵</span>Cycling Tips
+  <button class="tab-btn active" onclick="showTab('weather')" id="btn-weather">
+    <span class="tab-icon">🗺️</span>Trip Guide
   </button>
-  <button class="tab-btn" onclick="showTab('weather')" id="btn-weather">
-    <span class="tab-icon">🌤️</span>Weather Guide
+  <button class="tab-btn" onclick="showTab('cityguide')" id="btn-cityguide">
+    <span class="tab-icon">🚵</span>Cycling Tips
   </button>
   <button class="tab-btn" onclick="showTab('day')" id="btn-day">
     <span class="tab-icon">🌆</span>Weather by City
@@ -913,6 +921,24 @@ function changesHTML(currentData, previousData) {
 // Slot indices: 0 Morning(7-10), 1 Early afternoon(11-14), 2 Late afternoon(15-18),
 //              3 Evening(19-22), 4 Night(23-6)
 
+// THE_PLAN: the fixed actual trip itinerary (always shown first in Trip Guide)
+const THE_PLAN = {
+  name: 'Our Plan',
+  desc: 'Arrive Verona, train to Padua → Venice, Venice islands, Rimini coast + San Marino, cycle Peschiera → Garda → Malcesine → Riva, Innsbruck departure.',
+  days: [
+    { date:'2026-06-06', locIdx:6, loc:'Verona',              activity:'✈️ Arrive 7pm Verona — settle in',                       slots:[3,4] },
+    { date:'2026-06-07', locIdx:7, loc:'Venice / Brenta',     activity:'🚂 Train to Padua → 🚴 Brenta Riviera to Venice (~35km)', slots:[0,1,2] },
+    { date:'2026-06-08', locIdx:7, loc:'Venice',              activity:'🚶 Venice Lagoon Islands; evening train to Bologna',      slots:[0,1,2] },
+    { date:'2026-06-09', locIdx:9, loc:'Rimini',              activity:'🚂 Morning train to Rimini — beach or 🚵 San Marino',     slots:[0,1,2,3] },
+    { date:'2026-06-10', locIdx:9, loc:'Rimini',              activity:'🚴 Marecchia Valley; evening train to Peschiera',         slots:[0,1,2] },
+    { date:'2026-06-11', locIdx:5, loc:'Peschiera del Garda', activity:'🚴 Peschiera → Garda; ferry to Malcesine',               slots:[0,1,2] },
+    { date:'2026-06-12', locIdx:4, loc:'Malcesine',           activity:'🚴 Malcesine → Limone → Riva; Ponale + Ciclopista',      slots:[0,1,2] },
+    { date:'2026-06-13', locIdx:3, loc:'Riva del Garda',      activity:'🌊 TBD in Riva del Garda',                               slots:[0,1,2,3] },
+    { date:'2026-06-14', locIdx:3, loc:'Riva / Innsbruck',    activity:'🚂 TBD / travel toward Innsbruck',                       slots:[0,1,2] },
+    { date:'2026-06-15', locIdx:0, loc:'Innsbruck',           activity:'🚂 10:42 Innsbruck → Munich arr 12:35',                  slots:[0,1] },
+  ],
+};
+
 const ITINERARIES = [
   {
     name: 'Route A — Garda First',
@@ -987,7 +1013,7 @@ function scoreClass(score) {
   return 'score-poor';
 }
 
-function itineraryCardHTML(itin, data, why) {
+function itineraryCardHTML(itin, data, why, isPlan = false) {
   let totalScore = 0, scored = 0;
 
   const rows = itin.days.map(day => {
@@ -1002,7 +1028,9 @@ function itineraryCardHTML(itin, data, why) {
   const chipCls  = scoreClass(avgScore);
   const chipTxt  = avgScore !== null ? `${avgScore}/100` : '—';
 
-  let html = `<div class="itin-card">
+  const planBadge = isPlan ? `<span class="itin-plan-badge">OUR PLAN</span>` : '';
+  let html = `<div class="itin-card${isPlan ? ' itin-card-plan' : ''}">
+    ${planBadge}
     <div class="itin-header">
       <span class="itin-title">${itin.name}</span>
       <span class="itin-score-chip ${chipCls}">${chipTxt}</span>
@@ -1038,67 +1066,91 @@ function itineraryCardHTML(itin, data, why) {
   return html;
 }
 
-// Build a "why" paragraph for a given itinerary + scored day results
-function buildWhyText(itin, data, avg, othersAvg) {
+// Score a full itinerary and return { itin, avg, dayResults }
+function scoreItin(itin, data) {
+  let total = 0, count = 0;
   const dayResults = itin.days.map(day => {
-    const locData = data[day.locIdx];
+    const locData = data ? data[day.locIdx] : null;
     const dayData = locData?.days.find(d => d.date === day.date);
     const r = scoreDayForActivity(dayData, day.slots);
+    if (r !== null) { total += r.score; count++; }
     return { day, r };
-  }).filter(x => x.r !== null);
+  });
+  return { itin, avg: count ? Math.round(total / count) : null, dayResults };
+}
 
-  dayResults.sort((a, b) => b.r.score - a.r.score);
-  const bestDays  = dayResults.slice(0, 2);
-  const worstDay  = dayResults[dayResults.length - 1];
-
-  // Score formula explanation
-  let why = `<strong>Score ${avg}/100</strong> — averaged across all 9 days. `;
-  why += `Each day is scored as: 100 − rain% × 0.75 − precip(mm) × 6, minus a cold penalty if under 17 °C. `;
-
-  // Best days
-  if (bestDays.length) {
-    const names = bestDays.map(x => `${x.day.loc} on ${formatDate(x.day.date)} (${x.r.maxTemp}°, ${x.r.maxRain}% rain, score ${x.r.score})`).join(' and ');
-    why += `Best days: ${names}. `;
+// Build why-text for THE_PLAN card
+function buildPlanWhyText(scored) {
+  const { avg, dayResults } = scored;
+  const valid = dayResults.filter(x => x.r !== null);
+  if (!valid.length) return null;
+  valid.sort((a, b) => b.r.score - a.r.score);
+  const best  = valid[0];
+  const worst = valid[valid.length - 1];
+  let why = `Overall score <strong>${avg}/100</strong>. `;
+  why += `Best day: ${best.day.loc} ${formatDate(best.day.date)} (${best.r.maxTemp}°, ${best.r.maxRain}% rain, score ${best.r.score}). `;
+  if (worst.r.score < 65) {
+    why += `Riskiest day: ${worst.day.loc} ${formatDate(worst.day.date)} (${worst.r.maxRain}% rain, score ${worst.r.score}) — watch this one. `;
   }
-  // Worst day
-  if (worstDay && worstDay.r.score < 70) {
-    why += `Weakest day: ${worstDay.day.loc} on ${formatDate(worstDay.day.date)} (${worstDay.r.maxRain}% rain, score ${worstDay.r.score}) — keep this one flexible. `;
-  }
-  // vs others
-  if (othersAvg.length) {
-    const others = othersAvg.map(o => `${o.name} (${o.avg}/100)`).join(', ');
-    why += `Other options: ${others}.`;
-  }
+  return why;
+}
 
+// Build why-text for an alternative vs The Plan (highlight better/worse days ≥10pt delta)
+function buildAltWhyText(altScored, planScored) {
+  const { avg } = altScored;
+  const planAvg = planScored.avg;
+  let why = `Score <strong>${avg !== null ? avg : '—'}/100</strong>`;
+  if (planAvg !== null && avg !== null) {
+    const diff = avg - planAvg;
+    if (diff >= 3) why += ` — <span style="color:#065f46">+${diff} vs Our Plan ✓</span>`;
+    else if (diff <= -3) why += ` — <span style="color:#991b1b">${diff} vs Our Plan</span>`;
+    else why += ` — similar to Our Plan`;
+  }
+  why += '. ';
+
+  // Find days that differ significantly vs plan by date
+  const betterDays = [], worseDays = [];
+  altScored.dayResults.forEach(({ day, r }) => {
+    if (!r) return;
+    const planDay = planScored.dayResults.find(p => p.day.date === day.date);
+    if (!planDay?.r) return;
+    const delta = r.score - planDay.r.score;
+    if (delta >= 10) betterDays.push({ day, r, delta });
+    if (delta <= -10) worseDays.push({ day, r, delta });
+  });
+
+  if (betterDays.length) {
+    betterDays.sort((a, b) => b.delta - a.delta);
+    const names = betterDays.slice(0, 2).map(x => `${x.day.loc} ${formatDate(x.day.date)} (+${x.delta}pts)`).join(', ');
+    why += `<span style="color:#065f46">Better: ${names}.</span> `;
+  }
+  if (worseDays.length) {
+    worseDays.sort((a, b) => a.delta - b.delta);
+    const names = worseDays.slice(0, 2).map(x => `${x.day.loc} ${formatDate(x.day.date)} (${x.delta}pts)`).join(', ');
+    why += `<span style="color:#92400e">Weaker: ${names}.</span>`;
+  }
   return why;
 }
 
 function travelHTML(data) {
-  // Score all itineraries
-  const scoredItins = ITINERARIES.map(itin => {
-    let total = 0, count = 0;
-    itin.days.forEach(day => {
-      if (!data) return;
-      const locData = data[day.locIdx];
-      const dayData = locData?.days.find(d => d.date === day.date);
-      const r = scoreDayForActivity(dayData, day.slots);
-      if (r !== null) { total += r.score; count++; }
-    });
-    return { itin, avg: count ? Math.round(total / count) : null };
-  });
+  // Score The Plan
+  const planScored = scoreItin(THE_PLAN, data);
 
-  // Sort best first
-  scoredItins.sort((a, b) => (b.avg ?? 0) - (a.avg ?? 0));
+  // Score alternatives, sort best first
+  const altScored = ITINERARIES.map(itin => scoreItin(itin, data));
+  altScored.sort((a, b) => (b.avg ?? 0) - (a.avg ?? 0));
 
-  const cards = scoredItins.map((s, idx) => {
-    const othersAvg = scoredItins
-      .filter((_, j) => j !== idx)
-      .map(o => ({ name: o.itin.name, avg: o.avg }));
-    const why = data ? buildWhyText(s.itin, data, s.avg, othersAvg) : null;
-    return itineraryCardHTML(s.itin, data, why);
+  // THE_PLAN card (always first, special badge)
+  const planWhy = data ? buildPlanWhyText(planScored) : null;
+  const planCard = itineraryCardHTML(THE_PLAN, data, planWhy, true);
+
+  // Alternative cards
+  const altCards = altScored.map(s => {
+    const why = data ? buildAltWhyText(s, planScored) : null;
+    return itineraryCardHTML(s.itin, data, why, false);
   }).join('');
 
-  return `<div class="itin-scroll">${cards}</div>`;
+  return `<div class="itin-scroll">${planCard}${altCards}</div>`;
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -1588,10 +1640,10 @@ function renderCityGuideTab() {
 
 function renderWeatherGuideTab(currentData, previousData) {
   document.getElementById('weather-content').innerHTML =
-    `<div class="section-title">Changes</div>` +
-    changesHTML(currentData, previousData) +
-    `<div class="section-title">Travel Recommendation</div>` +
-    travelHTML(currentData);
+    `<div class="section-title">Itinerary</div>` +
+    travelHTML(currentData) +
+    `<div class="section-title">Weather Changes</div>` +
+    changesHTML(currentData, previousData);
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -1709,7 +1761,7 @@ function renderAll() {
 // TAB SWITCHING
 // ═══════════════════════════════════════════════════════════════
 
-const TAB_NAMES = ['cityguide', 'weather', 'day', 'city'];
+const TAB_NAMES = ['weather', 'cityguide', 'day', 'city'];
 
 function showTab(name) {
   TAB_NAMES.forEach(t => {
